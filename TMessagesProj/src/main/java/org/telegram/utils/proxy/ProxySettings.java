@@ -103,14 +103,14 @@ public final class ProxySettings {
         StringBuilder url;
         switch (type) {
             case MTPROTO:
-                url = new StringBuilder("https://t.me/proxy?");
+                url = new StringBuilder("https://telesrv.net/proxy?");
                 break;
             case WEB:
-                url = new StringBuilder("https://t.me/webproxy?");
+                url = new StringBuilder("https://telesrv.net/webproxy?");
                 break;
             case SOCKS5:
             default:
-                url = new StringBuilder("https://t.me/socks?");
+                url = new StringBuilder("https://telesrv.net/socks?");
                 break;
         }
 
@@ -235,7 +235,7 @@ public final class ProxySettings {
                 }
 
                 host = host.toLowerCase();
-                if (!host.equals("telegram.me") && !host.equals("t.me") && !host.equals("telegram.dog")) {
+                if (!host.equals("telesrv.net")) {
                     return null;
                 }
 

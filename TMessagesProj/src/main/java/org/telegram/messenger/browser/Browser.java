@@ -201,17 +201,26 @@ public class Browser {
         if (link == null || TextUtils.isEmpty(link)) {
             return null;
         }
+        final String telesrvPrefix = "telesrv.net/";
+        final String telesrvHttpPrefix = "http://telesrv.net/";
+        final String telesrvHttpsPrefix = "https://telesrv.net/";
         if (link.startsWith("@")) {
             return link.substring(1);
+        }
+        if (link.startsWith(telesrvPrefix)) {
+            return link.substring(telesrvPrefix.length());
+        }
+        if (link.startsWith(telesrvHttpPrefix)) {
+            return link.substring(telesrvHttpPrefix.length());
+        }
+        if (link.startsWith(telesrvHttpsPrefix)) {
+            return link.substring(telesrvHttpsPrefix.length());
         }
         if (link.startsWith("t.me/")) {
             return link.substring(5);
         }
         if (link.startsWith("http://t.me/")) {
             return link.substring(12);
-        }
-        if (link.startsWith("https://t.me/")) {
-            return link.substring(13);
         }
         Matcher prefixMatcher = LaunchActivity.PREFIX_T_ME_PATTERN.matcher(link);
         if (prefixMatcher.find()) {
@@ -680,7 +689,7 @@ public class Browser {
 
         Matcher prefixMatcher = LaunchActivity.PREFIX_T_ME_PATTERN.matcher(host);
         if (prefixMatcher.find()) {
-            uri = Uri.parse("https://t.me/" + prefixMatcher.group(1) + (TextUtils.isEmpty(uri.getPath()) ? "" : "/" + uri.getPath()) + (TextUtils.isEmpty(uri.getQuery()) ? "" : "?" + uri.getQuery()));
+            uri = Uri.parse("https://telesrv.net/" + prefixMatcher.group(1) + (TextUtils.isEmpty(uri.getPath()) ? "" : "/" + uri.getPath()) + (TextUtils.isEmpty(uri.getQuery()) ? "" : "?" + uri.getQuery()));
 
             host = uri.getHost();
             host = host != null ? host.toLowerCase() : "";
@@ -714,7 +723,7 @@ public class Browser {
                 }
                 return true;
             }
-        } else if ("telegram.me".equals(host) || "t.me".equals(host)) {
+        } else if ("telesrv.net".equals(host)) {
             String path = uri.getPath();
             if (path != null && path.length() > 1) {
                 if (all) {

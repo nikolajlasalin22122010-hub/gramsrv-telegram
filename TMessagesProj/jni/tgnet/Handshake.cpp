@@ -363,27 +363,15 @@ void Handshake::processHandshakeResponse_resPQ(TLObject *message, int64_t messag
             }
         } else {
             if (serverPublicKeys.empty()) {
-                if (ConnectionsManager::getInstance(currentDatacenter->instanceNum).testBackend) {
-                    serverPublicKeys.emplace_back("-----BEGIN RSA PUBLIC KEY-----\n"
-                                                  "MIIBCgKCAQEAyMEdY1aR+sCR3ZSJrtztKTKqigvO/vBfqACJLZtS7QMgCGXJ6XIR\n"
-                                                  "yy7mx66W0/sOFa7/1mAZtEoIokDP3ShoqF4fVNb6XeqgQfaUHd8wJpDWHcR2OFwv\n"
-                                                  "plUUI1PLTktZ9uW2WE23b+ixNwJjJGwBDJPQEQFBE+vfmH0JP503wr5INS1poWg/\n"
-                                                  "j25sIWeYPHYeOrFp/eXaqhISP6G+q2IeTaWTXpwZj4LzXq5YOpk4bYEQ6mvRq7D1\n"
-                                                  "aHWfYmlEGepfaYR8Q0YqvvhYtMte3ITnuSJs171+GDqpdKcSwHnd6FudwGO4pcCO\n"
-                                                  "j4WcDuXc2CTHgH8gFTNhp/Y8/SpDOhvn9QIDAQAB\n"
-                                                  "-----END RSA PUBLIC KEY-----");
-                    serverPublicKeysFingerprints.push_back(0xb25898df208d2603);
-                } else {
-                    serverPublicKeys.emplace_back("-----BEGIN RSA PUBLIC KEY-----\n"
-                                                  "MIIBCgKCAQEA6LszBcC1LGzyr992NzE0ieY+BSaOW622Aa9Bd4ZHLl+TuFQ4lo4g\n"
-                                                  "5nKaMBwK/BIb9xUfg0Q29/2mgIR6Zr9krM7HjuIcCzFvDtr+L0GQjae9H0pRB2OO\n"
-                                                  "62cECs5HKhT5DZ98K33vmWiLowc621dQuwKWSQKjWf50XYFw42h21P2KXUGyp2y/\n"
-                                                  "+aEyZ+uVgLLQbRA1dEjSDZ2iGRy12Mk5gpYc397aYp438fsJoHIgJ2lgMv5h7WY9\n"
-                                                  "t6N/byY9Nw9p21Og3AoXSL2q/2IJ1WRUhebgAdGVMlV1fkuOQoEzR7EdpqtQD9Cs\n"
-                                                  "5+bfo3Nhmcyvk5ftB0WkJ9z6bNZ7yxrP8wIDAQAB\n"
-                                                  "-----END RSA PUBLIC KEY-----");
-                    serverPublicKeysFingerprints.push_back(0xd09d1d85de64fd85);
-                }
+                serverPublicKeys.emplace_back("-----BEGIN RSA PUBLIC KEY-----\n"
+                                              "MIIBCgKCAQEAxF//0M0+/5PzgdNagTX+J+dJgr75ZCTuiG8i4x7YwmJF+jiOGCjm\n"
+                                              "7X7BLCaMc1+hOZYDL3+Gvle/AKykW1qouaCJMVx/H+2l8LFXLelZ2PLawTb8A7Bl\n"
+                                              "TqWzL3db5BugMNWziL9TuhR8In1bwKY07QVpR9in5zjAsAGLBk+mGt0DnVyMf1Xo\n"
+                                              "p2lLCFNmm0F4ykcAeaLCCIPbGWddliLY8xEEhI4GO2l1U3kZMwIOdOnAGJFtgUAo\n"
+                                              "Te+FHR6F1s9adCVZB1teL/hf9R+WmekJwygVz0MYEH7y6U49T45+/W7OF6X6g0W0\n"
+                                              "j1uSSrsY4qN7twxbTad9zdGZ7ys+9v+PuQIDAQAB\n"
+                                              "-----END RSA PUBLIC KEY-----");
+                serverPublicKeysFingerprints.push_back(0x9dbe5a4c45febeff);
             }
 
             size_t count2 = serverPublicKeysFingerprints.size();
@@ -458,11 +446,7 @@ void Handshake::processHandshakeResponse_resPQ(TLObject *message, int64_t messag
             tl_p_q_inner_data->p = std::make_unique<ByteArray>(new ByteArray(request->p.get()));
             tl_p_q_inner_data->q = std::make_unique<ByteArray>(new ByteArray(request->q.get()));
             tl_p_q_inner_data->new_nonce = std::make_unique<ByteArray>(new ByteArray(32));
-            if (ConnectionsManager::getInstance(currentDatacenter->instanceNum).testBackend) {
-                tl_p_q_inner_data->dc = 10000 + currentDatacenter->datacenterId;
-            } else {
-                tl_p_q_inner_data->dc = currentDatacenter->datacenterId;
-            }
+            tl_p_q_inner_data->dc = currentDatacenter->datacenterId;
             RAND_bytes(tl_p_q_inner_data->new_nonce->bytes, 32);
             authNewNonce = new ByteArray(tl_p_q_inner_data->new_nonce.get());
             innerData = tl_p_q_inner_data;
@@ -475,17 +459,9 @@ void Handshake::processHandshakeResponse_resPQ(TLObject *message, int64_t messag
             tl_p_q_inner_data_temp->q = std::make_unique<ByteArray>(new ByteArray(request->q.get()));
             tl_p_q_inner_data_temp->new_nonce = std::make_unique<ByteArray>(new ByteArray(32));
             if (handshakeType == HandshakeTypeMediaTemp) {
-                if (ConnectionsManager::getInstance(currentDatacenter->instanceNum).testBackend) {
-                    tl_p_q_inner_data_temp->dc = -(10000 + currentDatacenter->datacenterId);
-                } else {
-                    tl_p_q_inner_data_temp->dc = -currentDatacenter->datacenterId;
-                }
+                tl_p_q_inner_data_temp->dc = -currentDatacenter->datacenterId;
             } else {
-                if (ConnectionsManager::getInstance(currentDatacenter->instanceNum).testBackend) {
-                    tl_p_q_inner_data_temp->dc = 10000 + currentDatacenter->datacenterId;
-                } else {
-                    tl_p_q_inner_data_temp->dc = currentDatacenter->datacenterId;
-                }
+                tl_p_q_inner_data_temp->dc = currentDatacenter->datacenterId;
             }
             tl_p_q_inner_data_temp->expires_in = TEMP_AUTH_KEY_EXPIRE_TIME;
             RAND_bytes(tl_p_q_inner_data_temp->new_nonce->bytes, 32);

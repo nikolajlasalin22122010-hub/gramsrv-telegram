@@ -777,7 +777,7 @@ public class StarsController {
         }
 
         final boolean isInvoiceBillingDisabled = isInvoiceBillingDisabled(purposePeer);
-        if ((BuildVars.useInvoiceBilling() || !BillingController.getInstance().isReady()) && !isInvoiceBillingDisabled) {
+        if ((BuildVars.useInvoiceBilling() || !BillingController.getInstance().isReady() || TextUtils.isEmpty(option.store_product)) && !isInvoiceBillingDisabled) {
             final TLRPC.TL_inputStorePaymentStarsTopup purpose = new TLRPC.TL_inputStorePaymentStarsTopup();
             purpose.stars = option.stars;
             purpose.amount = option.amount;
@@ -913,7 +913,7 @@ public class StarsController {
             return;
         }
 
-        if (BuildVars.useInvoiceBilling() || !BillingController.getInstance().isReady()) {
+        if (BuildVars.useInvoiceBilling() || !BillingController.getInstance().isReady() || TextUtils.isEmpty(option.store_product)) {
             TLRPC.TL_inputStorePaymentStarsGift purpose = new TLRPC.TL_inputStorePaymentStarsGift();
             purpose.stars = option.stars;
             purpose.amount = option.amount;
@@ -1090,7 +1090,7 @@ public class StarsController {
         payload.amount = option.amount;
         payload.users = users;
 
-        if (BuildVars.useInvoiceBilling() || !BillingController.getInstance().isReady() || option.store_product == null) {
+        if (BuildVars.useInvoiceBilling() || !BillingController.getInstance().isReady() || TextUtils.isEmpty(option.store_product)) {
 
             TLRPC.TL_inputInvoiceStars invoice = new TLRPC.TL_inputInvoiceStars();
             invoice.purpose = payload;

@@ -41,22 +41,33 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: SDK packages
+      # android-actions/setup-android@v3 fails on this image: it asks for the
+      # retired "tools" package and exits 1. Install the pieces by hand.
+      - name: Android SDK packages
         run: |
-          sdkmanager --install \
+          set -e
+          export ANDROID_SDK_ROOT=/usr/local/lib/android/sdk
+          export ANDROID_HOME=$ANDROID_SDK_ROOT
+          sudo rm -rf "$ANDROID_SDK_ROOT/cmdline-tools/latest"
+          sudo mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools"
+          curl -sSLo /tmp/clt.zip https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+          sudo unzip -q -o /tmp/clt.zip -d "$ANDROID_SDK_ROOT/cmdline-tools"
+          sudo mv "$ANDROID_SDK_ROOT/cmdline-tools/cmdline-tools" "$ANDROID_SDK_ROOT/cmdline-tools/latest"
+          SM="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SM" --sdk_root="$ANDROID_SDK_ROOT" --licenses > /dev/null 2>&1 || true
+          "$SM" --sdk_root="$ANDROID_SDK_ROOT" \
             "platform-tools" \
             "platforms;android-36" \
             "build-tools;36.0.0" \
             "ndk;27.2.12479018" \
             "cmake;3.22.1"
-          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
+          df -h / | tail -1
 
       - name: Build debug APK
         run: |
-          echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
+          export ANDROID_SDK_ROOT=/usr/local/lib/android/sdk
+          export ANDROID_HOME=$ANDROID_SDK_ROOT
           chmod +x gradlew
           ./gradlew :TMessagesProj_App:assembleDebug \
             -PdaskAbi=arm64-v8a \

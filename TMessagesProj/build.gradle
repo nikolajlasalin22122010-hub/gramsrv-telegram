@@ -149,6 +149,14 @@ android {
                 targets 'tmessages.49'
             }
         }
+
+        // DaskGram CI: build a single ABI when asked, so the runner does not
+        // spend hours on four architectures. No property -> stock behaviour.
+        if (project.hasProperty("daskAbi")) {
+            ndk {
+                abiFilters project.property("daskAbi").toString().split(",")
+            }
+        }
     }
 
     buildTypes {

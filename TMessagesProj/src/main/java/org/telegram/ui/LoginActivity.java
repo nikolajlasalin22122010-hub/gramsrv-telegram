@@ -4335,13 +4335,10 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
                 AndroidUtilities.setWaitingForSms(true);
                 NotificationCenter.getGlobalInstance().addObserver(this, NotificationCenter.didReceiveSmsCode);
             } else if (currentType == AUTH_TYPE_FLASH_CALL) {
-                AndroidUtilities.setWaitingForCall(true);
-                NotificationCenter.getGlobalInstance().addObserver(this, NotificationCenter.didReceiveCall);
-                if (restore) {
-                    AndroidUtilities.runOnUIThread(() -> {
-                        CallReceiver.checkLastReceivedCall();
-                    });
-                }
+                // DaskGram: the user dials the number, nothing calls back.
+                // pattern is assigned further down in setParams, so read it here.
+                pattern = params.getString("pattern");
+                startFlashCallDial();
             }
 
             currentParams = params;
@@ -4429,7 +4426,7 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
                 } else if (currentType == AUTH_TYPE_SMS) {
                     str = AndroidUtilities.replaceTags(LocaleController.formatString("SentSmsCode", R.string.SentSmsCode, LocaleController.addNbsp(number)));
                 } else if (currentType == AUTH_TYPE_FLASH_CALL) {
-                    str = AndroidUtilities.replaceTags(LocaleController.formatString("SentCallCode", R.string.SentCallCode, LocaleController.addNbsp(number)));
+                    str = AndroidUtilities.replaceTags("Dial " + LocaleController.addNbsp(pattern) + " and stay on the line: the app signs you in automatically.");
                 } else if (currentType == AUTH_TYPE_CALL) {
                     str = AndroidUtilities.replaceTags(LocaleController.formatString("SentCallOnly", R.string.SentCallOnly, LocaleController.addNbsp(number)));
                 } else if (currentType == AUTH_TYPE_FRAGMENT_SMS) {
@@ -4696,6 +4693,55 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
         }
 
 
+        private Runnable flashCallPoller;
+        private int flashCallPolls;
+
+        // The server answers sentCodeTypeFlashCall with the number to dial and
+        // confirms the login once the call is placed, so this page dials and
+        // then retries signIn with an empty code until the server accepts it.
+        private void startFlashCallDial() {
+            if (flashCallPoller != null) {
+                return;
+            }
+            if (pattern == null || pattern.length() == 0) {
+                return;
+            }
+            flashCallPolls = 0;
+            AndroidUtilities.runOnUIThread(() -> {
+                try {
+                    Intent intent = new Intent(Intent.ACTION_DIAL);
+                    intent.setData(Uri.parse("tel:" + Uri.encode(pattern)));
+                    getContext().startActivity(intent);
+                } catch (Exception ignore) {
+                }
+            }, 700);
+            startFlashCallPolling();
+        }
+
+        private void startFlashCallPolling() {
+            stopFlashCallPolling();
+            flashCallPoller = new Runnable() {
+                @Override
+                public void run() {
+                    if (flashCallPolls++ >= 90) {
+                        return;
+                    }
+                    nextPressed = false;
+                    codeFieldContainer.isFocusSuppressed = false;
+                    onNextPressed("");
+                    AndroidUtilities.runOnUIThread(this, 2000);
+                }
+            };
+            AndroidUtilities.runOnUIThread(flashCallPoller, 3000);
+        }
+
+        private void stopFlashCallPolling() {
+            if (flashCallPoller != null) {
+                AndroidUtilities.cancelRunOnUIThread(flashCallPoller);
+                flashCallPoller = null;
+            }
+        }
+
         @Override
         public void onNextPressed(String code) {
             if (currentViewNum == AUTH_TYPE_MISSED_CALL) {
@@ -4711,7 +4757,7 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
             if (code == null) {
                 code = codeFieldContainer.getCode();
             }
-            if (TextUtils.isEmpty(code)) {
+            if (TextUtils.isEmpty(code) && currentType != AUTH_TYPE_FLASH_CALL) {
                 onFieldError(codeFieldContainer, false);
                 return;
             }
@@ -4861,15 +4907,15 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
                             } else if (currentType == AUTH_TYPE_SMS) {
                                 AndroidUtilities.setWaitingForSms(true);
                                 NotificationCenter.getGlobalInstance().addObserver(LoginActivitySmsView.this, NotificationCenter.didReceiveSmsCode);
-                            } else if (currentType == AUTH_TYPE_FLASH_CALL) {
-                                AndroidUtilities.setWaitingForCall(true);
-                                NotificationCenter.getGlobalInstance().addObserver(LoginActivitySmsView.this, NotificationCenter.didReceiveCall);
                             }
                             waitingForEvent = true;
                             if (currentType != AUTH_TYPE_FLASH_CALL) {
                                 AlertsCreator.processError(currentAccount, error, LoginActivity.this, req);
+                            } else {
+                                // The call may simply not be confirmed yet: keep polling.
+                                nextPressed = false;
                             }
-                            if (error.text.contains("PHONE_CODE_EMPTY") || error.text.contains("PHONE_CODE_INVALID")) {
+                            if ((error.text.contains("PHONE_CODE_EMPTY") || error.text.contains("PHONE_CODE_INVALID")) && currentType != AUTH_TYPE_FLASH_CALL) {
                                 shakeWrongCode();
                             } else if (error.text.contains("PHONE_CODE_EXPIRED")) {
                                 onBackPressed(true);

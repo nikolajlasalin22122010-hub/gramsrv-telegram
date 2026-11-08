@@ -1827,6 +1827,9 @@ void ConnectionsManager::initDatacenters() {
     }
 
     std::vector<TcpAddress> localAddresses;
+    // DaskGram: the RU relay is the entry point (the German host is often
+    // unreachable from Russian ISPs). It forwards to the same DC.
+    localAddresses.push_back(TcpAddress("62.173.152.31", 2398, TcpAddressFlagStatic, ""));
     localAddresses.push_back(TcpAddress("201.58.183.150", 2398, TcpAddressFlagStatic, ""));
     datacenter->replaceAddresses(localAddresses, 0);
 }

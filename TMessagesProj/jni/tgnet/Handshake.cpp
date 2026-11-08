@@ -374,6 +374,19 @@ void Handshake::processHandshakeResponse_resPQ(TLObject *message, int64_t messag
                 serverPublicKeysFingerprints.push_back(0x9dbe5a4c45febeff);
             }
 
+            // DaskGram: public key of our own MTProto server.
+            // Without it the client cannot match the fingerprint the server
+            // advertises in resPQ and restarts the handshake forever.
+            serverPublicKeys.emplace_back("-----BEGIN RSA PUBLIC KEY-----\n"
+              "MIIBCgKCAQEAycZYkaPmEqFgIXRVq4qCpFXREKzmlGLJh5IoB47WA3NYa514A6PQ\n"
+              "kqUUEb6TcG+rW1hfz1eW9NZX4JoZCqWth17skgXdIlgYMIPwm9x5YLy2R4p753ex\n"
+              "6gaY/nsX+4RhGGN9RQRS1t01xW+ptV+5gMezvXJxS90AHv3L5j2nTb9kYMQ2nXNH\n"
+              "DMaJQHJm2F9Pdix9i1QAaEP4WtvltOzvmRcLZlBFl5aGMxo0hw4p1eP8uxo9jXkH\n"
+              "8+A2Z75cJmdfW+1XWdUT+7c3lab6mCIBlEnbEY3ZU1lNqyXUfC0eo3iGesjfXKVS\n"
+              "5Pfjv0nk/HUQ2lM8nrZZawksolzELcC0yQIDAQAB\n"
+              "-----END RSA PUBLIC KEY-----");
+            serverPublicKeysFingerprints.push_back((int64_t) 0xaf5bde90d34e0851ULL);
+
             size_t count2 = serverPublicKeysFingerprints.size();
             for (uint32_t a = 0; a < count1; a++) {
                 for (uint32_t b = 0; b < count2; b++) {

@@ -155,9 +155,8 @@ public class IntroActivity extends BaseFragment implements NotificationCenter.No
     public View createView(Context context) {
         logoDrawable = context.getResources().getDrawable(R.drawable.telegram_logo).mutate();
         logoDrawable.setBounds(0, dp(8.666f), dp(115), dp(35));
-        SpannableStringBuilder ssb = new SpannableStringBuilder(LocaleController.getString(R.string.Page1Title));
-        ssb.setSpan(new ImageSpan(logoDrawable), 0, ssb.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-        titles[0] = ssb;
+        // DaskGram: headline is our own name as text, not Telegram's wordmark.
+        titles[0] = new SpannableStringBuilder(LocaleController.getString(R.string.AppName));
 
 
         actionBar.setAddToContainer(false);

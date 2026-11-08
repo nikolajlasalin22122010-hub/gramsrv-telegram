@@ -1,3 +1,15 @@
+// Resolve plugin artefacts from Maven Central first. The Gradle Plugin Portal
+// serves several of them as redirects to github.com/.../releases, which answers
+// 504 often enough to break CI. Maven Central is the canonical home for the
+// Kotlin plugin and its compiler jar anyway.
+pluginManagement {
+    repositories {
+        mavenCentral()
+        google()
+        gradlePluginPortal()
+    }
+}
+
 include ':TMessagesProj'
 include ':TMessagesProj_App'
 include ':TMessagesProj_AppHuawei'

@@ -1,6 +1,7 @@
 // Kotlin is needed only by this module's existing instrumentation tests.
 buildscript {
     repositories {
+        maven { url 'https://maven-central.storage-download.googleapis.com/maven2' }
         google()
         mavenCentral()
     }
@@ -15,6 +16,7 @@ apply plugin: 'test-generator'
 apply plugin: 'org.telegram.build-app-plugin'
 
 repositories {
+        maven { url 'https://maven-central.storage-download.googleapis.com/maven2' }
     mavenCentral()
     google()
 }

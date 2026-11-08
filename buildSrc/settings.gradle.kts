@@ -4,6 +4,7 @@
 // regularly returns 504, killing the build before compilation starts.
 pluginManagement {
     repositories {
+        maven("https://maven-central.storage-download.googleapis.com/maven2")
         mavenCentral()
         google()
         gradlePluginPortal()
@@ -12,6 +13,7 @@ pluginManagement {
 
 dependencyResolutionManagement {
     repositories {
+        maven("https://maven-central.storage-download.googleapis.com/maven2")
         google()
         mavenCentral()
     }

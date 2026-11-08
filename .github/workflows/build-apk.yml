@@ -66,12 +66,34 @@ jobs:
           echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
           df -h / | tail -1
 
+      # The wrapper downloads Gradle from github.com/gradle/gradle-distributions,
+      # which periodically answers 504 and kills the build. Fetch the same
+      # distribution ourselves, falling back to a mirror, and run it directly.
+      - name: Gradle 8.13
+        run: |
+          set -e
+          for URL in \
+            https://services.gradle.org/distributions/gradle-8.13-bin.zip \
+            https://mirrors.cloud.tencent.com/gradle/gradle-8.13-bin.zip \
+            https://mirrors.huaweicloud.com/gradle/gradle-8.13-bin.zip ; do
+            echo "== trying $URL"
+            if curl -fsSL --retry 2 --retry-delay 5 -m 300 -o /tmp/gradle.zip "$URL" \
+               && unzip -tq /tmp/gradle.zip > /dev/null 2>&1 ; then
+              echo "== ok: $URL"
+              break
+            fi
+            rm -f /tmp/gradle.zip
+          done
+          test -s /tmp/gradle.zip
+          sudo unzip -q -o /tmp/gradle.zip -d /opt
+          echo "/opt/gradle-8.13/bin" >> "$GITHUB_PATH"
+          /opt/gradle-8.13/bin/gradle --version
+
       - name: Build signed release APK
         run: |
           export ANDROID_SDK_ROOT=/usr/local/lib/android/sdk
           export ANDROID_HOME=$ANDROID_SDK_ROOT
-          chmod +x gradlew
-          ./gradlew :TMessagesProj_App:assembleAfatRelease \
+          gradle :TMessagesProj_App:assembleAfatRelease \
             --no-daemon --stacktrace \
             -Dorg.gradle.jvmargs="-Xmx8g -XX:MaxMetaspaceSize=1g"
 

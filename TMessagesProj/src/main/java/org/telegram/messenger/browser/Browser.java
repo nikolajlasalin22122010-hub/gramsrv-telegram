@@ -201,9 +201,9 @@ public class Browser {
         if (link == null || TextUtils.isEmpty(link)) {
             return null;
         }
-        final String telesrvPrefix = "telesrv.net/";
-        final String telesrvHttpPrefix = "http://telesrv.net/";
-        final String telesrvHttpsPrefix = "https://telesrv.net/";
+        final String telesrvPrefix = "daskgram.xyz/";
+        final String telesrvHttpPrefix = "http://daskgram.xyz/";
+        final String telesrvHttpsPrefix = "https://daskgram.xyz/";
         if (link.startsWith("@")) {
             return link.substring(1);
         }
@@ -689,7 +689,7 @@ public class Browser {
 
         Matcher prefixMatcher = LaunchActivity.PREFIX_T_ME_PATTERN.matcher(host);
         if (prefixMatcher.find()) {
-            uri = Uri.parse("https://telesrv.net/" + prefixMatcher.group(1) + (TextUtils.isEmpty(uri.getPath()) ? "" : "/" + uri.getPath()) + (TextUtils.isEmpty(uri.getQuery()) ? "" : "?" + uri.getQuery()));
+            uri = Uri.parse("https://daskgram.xyz/" + prefixMatcher.group(1) + (TextUtils.isEmpty(uri.getPath()) ? "" : "/" + uri.getPath()) + (TextUtils.isEmpty(uri.getQuery()) ? "" : "?" + uri.getQuery()));
 
             host = uri.getHost();
             host = host != null ? host.toLowerCase() : "";
@@ -723,7 +723,7 @@ public class Browser {
                 }
                 return true;
             }
-        } else if ("telesrv.net".equals(host)) {
+        } else if ("daskgram.xyz".equals(host)) {
             String path = uri.getPath();
             if (path != null && path.length() > 1) {
                 if (all) {

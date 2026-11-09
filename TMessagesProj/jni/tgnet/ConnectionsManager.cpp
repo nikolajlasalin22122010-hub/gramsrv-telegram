@@ -1827,9 +1827,6 @@ void ConnectionsManager::initDatacenters() {
     }
 
     std::vector<TcpAddress> localAddresses;
-    // DaskGram: the RU relay is the entry point (the German host is often
-    // unreachable from Russian ISPs). It forwards to the same DC.
-    localAddresses.push_back(TcpAddress("62.173.152.31", 2398, TcpAddressFlagStatic, ""));
     localAddresses.push_back(TcpAddress("201.58.183.150", 2398, TcpAddressFlagStatic, ""));
     datacenter->replaceAddresses(localAddresses, 0);
 }
@@ -3419,22 +3416,6 @@ void ConnectionsManager::updateDcSettings(uint32_t dcNum, bool workaround, bool 
                 for (auto & iter : map) {
                     Datacenter *datacenter = getDatacenterWithId(iter.first);
                     DatacenterInfo *info = iter.second.get();
-                    if (iter.first == 2 && !info->isCdn) {
-                        // DaskGram: a config cached from before the RU relay
-                        // existed lists only the German host, and applying it
-                        // wipes the relay we put first in initDatacenters().
-                        bool hasRelay = false;
-                        for (auto &known : info->addressesIpv4) {
-                            if (known.address == "62.173.152.31") {
-                                hasRelay = true;
-                                break;
-                            }
-                        }
-                        if (!hasRelay) {
-                            info->addressesIpv4.insert(info->addressesIpv4.begin(),
-                                TcpAddress("62.173.152.31", 2398, TcpAddressFlagStatic, ""));
-                        }
-                    }
                     if (datacenter == nullptr) {
                         datacenter = new Datacenter(instanceNum, iter.first);
                         datacenters[iter.first] = datacenter;

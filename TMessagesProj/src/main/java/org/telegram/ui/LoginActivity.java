@@ -4863,6 +4863,15 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
                                     codeFieldContainer.isFocusSuppressed = false;
                                     codeFieldContainer.codeField[0].requestFocus();
                                 }
+                            } else if (error.text.contains("PHONE_CODE_EXPIRED")) {
+                                // DaskGram: the flash call was not confirmed before the
+                                // code expired. Errors used to be ignored for this type,
+                                // so the poller kept hammering a dead hash and the screen
+                                // never told the user to start over.
+                                stopFlashCallPolling();
+                                onBackPressed(true);
+                                setPage(VIEW_PHONE_INPUT, true, null, true);
+                                needShowAlert(getString(R.string.RestorePasswordNoEmailTitle), getString("CodeExpired", R.string.CodeExpired));
                             }
                         }
                     }), ConnectionsManager.RequestFlagFailOnServerErrors);

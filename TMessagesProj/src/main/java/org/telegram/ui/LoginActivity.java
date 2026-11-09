@@ -4426,7 +4426,7 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
                 } else if (currentType == AUTH_TYPE_SMS) {
                     str = AndroidUtilities.replaceTags(LocaleController.formatString("SentSmsCode", R.string.SentSmsCode, LocaleController.addNbsp(number)));
                 } else if (currentType == AUTH_TYPE_FLASH_CALL) {
-                    str = AndroidUtilities.replaceTags("Dial " + LocaleController.addNbsp(pattern) + " and stay on the line: the app signs you in automatically.");
+                    str = AndroidUtilities.replaceTags(LocaleController.formatString("FlashCallHint", R.string.FlashCallHint, LocaleController.addNbsp(pattern)));
                 } else if (currentType == AUTH_TYPE_CALL) {
                     str = AndroidUtilities.replaceTags(LocaleController.formatString("SentCallOnly", R.string.SentCallOnly, LocaleController.addNbsp(number)));
                 } else if (currentType == AUTH_TYPE_FRAGMENT_SMS) {

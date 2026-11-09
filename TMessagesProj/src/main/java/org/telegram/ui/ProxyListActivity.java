@@ -48,6 +48,11 @@ import org.telegram.messenger.ProxyRotationController;
 import org.telegram.messenger.R;
 import org.telegram.messenger.SharedConfig;
 import org.telegram.utils.proxy.ProxySettings;
+
+import java.net.InetSocketAddress;
+import java.net.Socket;
+
+import org.telegram.messenger.Utilities;
 import org.telegram.tgnet.ConnectionsManager;
 import org.telegram.ui.ActionBar.ActionBar;
 import org.telegram.ui.ActionBar.ActionBarMenu;
@@ -676,6 +681,12 @@ public class ProxyListActivity extends BaseFragment implements NotificationCente
             }
             proxyInfo.checking = true;
             ConnectionsManager.getInstance(currentAccount).checkProxy(proxyInfo.settings, time -> AndroidUtilities.runOnUIThread(() -> {
+                if (time == -1 && proxyInfo.settings.getType() == ProxySettings.Type.SOCKS5) {
+                    // DaskGram: the native checker speaks MTProxy only, so a
+                    // SOCKS5 proxy always ended up "Connected" with no latency.
+                    measureProxyTcpPing(proxyInfo);
+                    return;
+                }
                 proxyInfo.availableCheckTime = SystemClock.elapsedRealtime();
                 proxyInfo.checking = false;
                 if (time == -1) {
@@ -688,6 +699,26 @@ public class ProxyListActivity extends BaseFragment implements NotificationCente
                 NotificationCenter.getGlobalInstance().postNotificationName(NotificationCenter.proxyCheckDone, proxyInfo);
             }));
         }
+    }
+
+    private void measureProxyTcpPing(SharedConfig.ProxyInfo proxyInfo) {
+        Utilities.globalQueue.postRunnable(() -> {
+            long start = SystemClock.elapsedRealtime();
+            boolean reachable = false;
+            try (Socket socket = new Socket()) {
+                socket.connect(new InetSocketAddress(proxyInfo.settings.getAddress(), proxyInfo.settings.getPort()), 3000);
+                reachable = true;
+            } catch (Exception ignore) {
+            }
+            final int ping = reachable ? (int) (SystemClock.elapsedRealtime() - start) : -1;
+            AndroidUtilities.runOnUIThread(() -> {
+                proxyInfo.availableCheckTime = SystemClock.elapsedRealtime();
+                proxyInfo.checking = false;
+                proxyInfo.available = ping != -1;
+                proxyInfo.ping = ping == -1 ? 0 : ping;
+                NotificationCenter.getGlobalInstance().postNotificationName(NotificationCenter.proxyCheckDone, proxyInfo);
+            });
+        });
     }
 
     @Override

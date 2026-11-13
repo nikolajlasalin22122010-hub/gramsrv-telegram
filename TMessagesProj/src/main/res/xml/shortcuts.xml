@@ -7,19 +7,19 @@
 
     <capability android:name="actions.intent.GET_THING">
         <intent>
-            <url-template android:value="telesrv://search{?query}" />
+            <url-template android:value="daskgram://search{?query}" />
             <parameter
                 android:name="thing.name"
                 android:key="query"
                 android:required="true" />
         </intent>
         <intent>
-            <url-template android:value="telesrv://search" />
+            <url-template android:value="daskgram://search" />
         </intent>
     </capability>
     <capability android:name="actions.intent.CREATE_CALL">
         <intent>
-            <url-template android:value="telesrv://call{?format,name,phone}" />
+            <url-template android:value="daskgram://call{?format,name,phone}" />
             <parameter
                 android:name="call.callFormat"
                 android:key="format" />
@@ -33,17 +33,17 @@
     </capability>
     <capability android:name="actions.intent.GET_ACCOUNT">
         <intent>
-            <url-template android:value="telesrv://settings" />
+            <url-template android:value="daskgram://settings" />
         </intent>
     </capability>
     <capability android:name="actions.intent.GET_BARCODE">
         <intent>
-            <url-template android:value="telesrv://scanqr" />
+            <url-template android:value="daskgram://scanqr" />
         </intent>
     </capability>
     <capability android:name="actions.intent.GET_CALL">
         <intent>
-            <url-template android:value="telesrv://calllog" />
+            <url-template android:value="daskgram://calllog" />
         </intent>
     </capability>
 </shortcuts>

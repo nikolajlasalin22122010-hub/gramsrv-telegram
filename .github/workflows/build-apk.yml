@@ -1,0 +1,121 @@
+name: Build DaskGram APK
+
+# Builds the Android client on GitHub-hosted runners so the production VDS is
+# never touched. The APK is a universal build (armeabi-v7a, arm64-v8a, x86,
+# x86_64) so it installs on any device without the user having to know their
+# architecture. It is signed with the DaskGram release keystore, which keeps
+# in-place updates working.
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - flashcall/dial-client
+
+permissions:
+  contents: read
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+
+    steps:
+      - name: Reclaim disk space
+        run: |
+          echo "before:"; df -h / | tail -1
+          sudo rm -rf /usr/share/dotnet /usr/local/.ghcup /opt/ghc \
+                      /usr/local/share/boost /usr/share/swift \
+                      /usr/local/lib/android/sdk/ndk \
+                      /usr/local/lib/android/sdk/system-images \
+                      /usr/local/lib/android/sdk/emulator || true
+          echo "after:"; df -h / | tail -1
+
+      - name: Checkout with submodules
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 1
+
+      - name: JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      # android-actions/setup-android@v3 fails on this image: it asks for the
+      # retired "tools" package and exits 1. Install the pieces by hand.
+      - name: Android SDK packages
+        run: |
+          set -e
+          export ANDROID_SDK_ROOT=/usr/local/lib/android/sdk
+          export ANDROID_HOME=$ANDROID_SDK_ROOT
+          sudo rm -rf "$ANDROID_SDK_ROOT/cmdline-tools/latest"
+          sudo mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools"
+          curl -sSLo /tmp/clt.zip https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+          sudo unzip -q -o /tmp/clt.zip -d "$ANDROID_SDK_ROOT/cmdline-tools"
+          sudo mv "$ANDROID_SDK_ROOT/cmdline-tools/cmdline-tools" "$ANDROID_SDK_ROOT/cmdline-tools/latest"
+          SM="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SM" --sdk_root="$ANDROID_SDK_ROOT" --licenses > /dev/null 2>&1 || true
+          "$SM" --sdk_root="$ANDROID_SDK_ROOT" \
+            "platform-tools" \
+            "platforms;android-36" \
+            "build-tools;36.0.0" \
+            "ndk;27.2.12479018" \
+            "cmake;3.22.1"
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
+          df -h / | tail -1
+
+      # The wrapper downloads Gradle from github.com/gradle/gradle-distributions,
+      # which periodically answers 504 and kills the build. Fetch the same
+      # distribution ourselves, falling back to a mirror, and run it directly.
+      - name: Gradle 8.13
+        run: |
+          set -e
+          for URL in \
+            https://services.gradle.org/distributions/gradle-8.13-bin.zip \
+            https://mirrors.cloud.tencent.com/gradle/gradle-8.13-bin.zip \
+            https://mirrors.huaweicloud.com/gradle/gradle-8.13-bin.zip ; do
+            echo "== trying $URL"
+            if curl -fsSL --retry 2 --retry-delay 5 -m 300 -o /tmp/gradle.zip "$URL" \
+               && unzip -tq /tmp/gradle.zip > /dev/null 2>&1 ; then
+              echo "== ok: $URL"
+              break
+            fi
+            rm -f /tmp/gradle.zip
+          done
+          test -s /tmp/gradle.zip
+          sudo unzip -q -o /tmp/gradle.zip -d /opt
+          echo "/opt/gradle-8.13/bin" >> "$GITHUB_PATH"
+          /opt/gradle-8.13/bin/gradle --version
+
+      - name: Build signed release APK
+        run: |
+          export ANDROID_SDK_ROOT=/usr/local/lib/android/sdk
+          export ANDROID_HOME=$ANDROID_SDK_ROOT
+          gradle :TMessagesProj_App:assembleAfatRelease \
+            --no-daemon --stacktrace \
+            -Dorg.gradle.jvmargs="-Xmx8g -XX:MaxMetaspaceSize=1g"
+
+      - name: List APKs
+        if: always()
+        run: |
+          find . -name '*.apk' -not -path '*/intermediates/*' -printf '%p  %k KB\n' || true
+          df -h / | tail -1
+
+      - name: Verify signature and package
+        run: |
+          set -e
+          BT=/usr/local/lib/android/sdk/build-tools/36.0.0
+          APK=$(find TMessagesProj_App/build/outputs/apk -name '*.apk' | head -1)
+          echo "APK: $APK"
+          "$BT/apksigner" verify --print-certs "$APK"
+          "$BT/aapt2" dump badging "$APK" | grep -E "^package|application-label|sdkVersion|native-code"
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: daskgram-release-apk
+          path: TMessagesProj_App/build/outputs/apk/**/*.apk
+          if-no-files-found: error
+          retention-days: 14

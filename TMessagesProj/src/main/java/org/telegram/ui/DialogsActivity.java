@@ -13808,6 +13808,10 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                 }
             }
         }
+        io.add(R.drawable.msg_secret, "VPN", () -> {
+            presentFragment(new org.telegram.vpn.VpnFragment());
+        });
+
         if (getUserConfig().showCallsTab) {
             io.add(R.drawable.msg_settings_old, getString(R.string.Settings), () -> {
                 presentFragment(new SettingsActivity());

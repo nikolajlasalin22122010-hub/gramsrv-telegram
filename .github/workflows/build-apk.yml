@@ -89,13 +89,45 @@ jobs:
           echo "/opt/gradle-8.13/bin" >> "$GITHUB_PATH"
           /opt/gradle-8.13/bin/gradle --version
 
+      # The 53 MB Xray core AAR exceeds the git blob limit, so it lives on the
+      # vpn-core release and is fetched here before Gradle resolves it.
+      - name: Fetch libXray.aar
+        run: |
+          set -e
+          mkdir -p TMessagesProj/libs
+          ASSET_ID=$(curl -fsSL -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/releases/tags/vpn-core" \
+            | python3 -c 'import json,sys; print(next(a["id"] for a in json.load(sys.stdin)["assets"] if a["name"]=="libXray.aar"))')
+          curl -fL --retry 3 -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/octet-stream" \
+            -o TMessagesProj/libs/libXray.aar \
+            "https://api.github.com/repos/${{ github.repository }}/releases/assets/$ASSET_ID"
+          ls -la TMessagesProj/libs/libXray.aar
+
+      # The media submodule pin predates the Maven mirror fix; apply it here so
+      # a cold runner does not hang on repo.maven.apache.org.
+      - name: Media submodule Maven mirror
+        run: |
+          python3 - <<'PY'
+          p = "TMessagesProj_Modules/media/build.gradle"
+          s = open(p).read()
+          mirror = "maven { url 'https://maven-central.storage-download.googleapis.com/maven2' }"
+          if mirror not in s:
+              s = s.replace("    repositories {", "    repositories {\n        " + mirror, 2)
+              open(p, "w").write(s)
+          print("mirror ok")
+          PY
+
       - name: Build signed release APK
         run: |
           export ANDROID_SDK_ROOT=/usr/local/lib/android/sdk
           export ANDROID_HOME=$ANDROID_SDK_ROOT
           gradle :TMessagesProj_App:assembleAfatRelease \
-            --no-daemon --stacktrace \
-            -Dorg.gradle.jvmargs="-Xmx8g -XX:MaxMetaspaceSize=1g"
+            # A cold checkout has no gradle cache, so all four ABIs compile at
+            # once. At -Xmx8g with the default worker count the runner runs out
+            # of memory and the VM is killed mid-R8, so cap both.
+            --no-daemon --stacktrace --max-workers=2 \
+            -Dorg.gradle.jvmargs="-Xmx5g -XX:MaxMetaspaceSize=1g"
 
       - name: List APKs
         if: always()

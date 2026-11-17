@@ -4,6 +4,9 @@ apply plugin: 'org.telegram.build-app-plugin'
 repositories {
     mavenCentral()
     google()
+    // libXray.aar lives in the library module; this module needs the same
+    // flat dir to resolve it through the transitive dependency.
+    flatDir { dirs '../TMessagesProj/libs' }
 }
 
 configurations {
@@ -153,7 +156,8 @@ android {
 
     applicationVariants.all { variant ->
         variant.outputs.all { output ->
-            outputFileName = "app.apk"
+            // Derive the artifact name from the same version embedded in the APK.
+            outputFileName = "DaskGram-${APP_VERSION_NAME}.apk"
             output.versionCodeOverride = defaultConfig.versionCode * 10 + variant.productFlavors.get(0).abiVersionCode
         }
     }

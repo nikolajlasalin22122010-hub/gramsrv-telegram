@@ -112,6 +112,32 @@ public final class VpnStore {
         if (changed) saveServers(servers);
     }
 
+    /**
+     * Atomically replaces every server of one subscription with the fresh set,
+     * keeping manual servers and the currently connected server untouched. The
+     * fresh order is preserved so the list matches the provider exactly.
+     */
+    public static void replaceSubscription(String subscription, List<VpnServer> fresh) {
+        if (subscription == null) return;
+        List<VpnServer> servers = loadServers();
+        VpnServer active = VpnController.getCurrent();
+        String activeId = active != null && VpnController.isConnected() ? active.id : null;
+        List<VpnServer> kept = new ArrayList<>();
+        for (VpnServer server : servers) {
+            if (!subscription.equals(server.subscription)) {
+                kept.add(server);
+            } else if (server.id.equals(activeId)) {
+                kept.add(server);
+            }
+        }
+        java.util.Set<String> keptIds = new java.util.HashSet<>();
+        for (VpnServer server : kept) keptIds.add(server.id);
+        for (VpnServer server : fresh) {
+            if (!keptIds.contains(server.id)) kept.add(server);
+        }
+        saveServers(kept);
+    }
+
     public static String getSubscriptionUrl() {
         return prefs().getString(KEY_SUBSCRIPTION, "");
     }
@@ -169,6 +195,24 @@ public final class VpnStore {
 
     public static void setConnectOnOpen(boolean subscription, boolean value) {
         prefs().edit().putBoolean(KEY_GROUP_PREFIX + group(subscription) + "_connect", value).apply();
+    }
+
+    /** Auto-connect when the client itself opens, not only the VPN page. */
+    public static boolean isAutoConnectOnLaunch() {
+        return prefs().getBoolean("vpn_auto_connect_launch", true);
+    }
+
+    public static void setAutoConnectOnLaunch(boolean value) {
+        prefs().edit().putBoolean("vpn_auto_connect_launch", value).apply();
+    }
+
+    /** Auto-select: probe servers and connect to the first reachable one. */
+    public static boolean isAutoSelectEnabled() {
+        return prefs().getBoolean("vpn_auto_select", false);
+    }
+
+    public static void setAutoSelectEnabled(boolean value) {
+        prefs().edit().putBoolean("vpn_auto_select", value).apply();
     }
 
     public static boolean isUpdateOnOpen() {

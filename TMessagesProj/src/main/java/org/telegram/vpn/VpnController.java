@@ -44,12 +44,82 @@ public final class VpnController {
     private static volatile VpnServer current;
     private static volatile String lastError;
     private static volatile long connectedSince;
+    private static volatile boolean autoConnectAttempted;
+    private static volatile Boolean coreAvailable;
+    private static final Object CORE_CHECK_LOCK = new Object();
+    private static final java.util.concurrent.ExecutorService AUTO_QUEUE =
+            java.util.concurrent.Executors.newSingleThreadExecutor();
 
     private VpnController() {
     }
 
+    /**
+     * Connects on client launch (not only when the VPN page is opened), mirroring
+     * how Telegram auto-applies an MTProto proxy at startup. Runs once per
+     * process, off the UI thread, and only when the user has servers configured.
+     */
+    public static void autoConnectOnLaunch() {
+        if (autoConnectAttempted || !VpnStore.isAutoConnectOnLaunch()) return;
+        autoConnectAttempted = true;
+        AUTO_QUEUE.execute(() -> {
+            try {
+                isCoreAvailable();
+                if (isConnected()) return;
+                java.util.List<VpnServer> servers = VpnStore.loadServers();
+                if (servers.isEmpty()) return;
+                VpnServer target = null;
+                String last = VpnStore.getLastServerId();
+                for (VpnServer server : servers) {
+                    if (server.id.equals(last)) { target = server; break; }
+                }
+                if (target == null) target = servers.get(0);
+                if (VpnStore.isAutoSelectEnabled()) {
+                    VpnServer best = autoSelect(servers);
+                    if (best != null) target = best;
+                }
+                connect(target);
+            } catch (Throwable t) {
+                Log.e(TAG, "auto connect on launch failed", t);
+            }
+        });
+    }
+
+    /**
+     * Probes every server and returns the reachable one with the lowest latency,
+     * like Telegram's automatic proxy switching. Returns null when none answers.
+     */
+    public static VpnServer autoSelect(java.util.List<VpnServer> servers) {
+        if (servers == null || servers.isEmpty()) return null;
+        VpnServer best = null;
+        int bestPing = Integer.MAX_VALUE;
+        for (VpnServer server : servers) {
+            int value = pingServer(server);
+            if (value >= 0 && value < bestPing) {
+                best = server;
+                bestPing = value;
+            }
+        }
+        return best;
+    }
+
     public static boolean isConnected() {
         return current != null && XrayCore.isRunning();
+    }
+
+    /**
+     * Cached availability probe. The first call loads the native core off the UI
+     * thread (auto-connect or an explicit connect); later calls from the UI just
+     * read the cached result, so the page never blocks on library loading.
+     */
+    public static boolean isCoreAvailable() {
+        Boolean value = coreAvailable;
+        if (value != null) return value;
+        synchronized (CORE_CHECK_LOCK) {
+            if (coreAvailable == null) {
+                coreAvailable = XrayCore.isAvailable();
+            }
+            return coreAvailable;
+        }
     }
 
     public static VpnServer getCurrent() {
@@ -68,6 +138,10 @@ public final class VpnController {
     public static String connect(VpnServer server) {
         if (server == null) {
             return "сервер не выбран";
+        }
+        if (!isCoreAvailable()) {
+            lastError = "VPN-ядро недоступно на этом устройстве";
+            return lastError;
         }
         disconnect();
         lastError = null;
@@ -188,12 +262,52 @@ public final class VpnController {
 
     /** I/O-only phase; the VPN screen runs this outside the serialized core queue. */
     public static String downloadSubscription(String url) throws Exception {
+        // Happ fetches subscriptions with certificate validation relaxed; many
+        // panels serve a self-signed or mismatched cert, which made the strict
+        // default handshake fail with "connection error". Mirror that behaviour:
+        // try the normal trust store first, then fall back to a permissive one.
+        // The body is only a list of share links, never credentials.
+        Exception strictError = null;
+        try {
+            return downloadSubscriptionOnce(url, false);
+        } catch (javax.net.ssl.SSLException e) {
+            strictError = e;
+        } catch (java.io.IOException e) {
+            // Some stacks wrap the handshake failure in a plain IOException.
+            if (e.getMessage() != null && (e.getMessage().contains("certificate")
+                    || e.getMessage().contains("SSL") || e.getMessage().contains("Trust anchor"))) {
+                strictError = e;
+            } else {
+                throw e;
+            }
+        }
+        Log.w(TAG, "subscription strict TLS failed, retrying permissive", strictError);
+        return downloadSubscriptionOnce(url, true);
+    }
+
+    private static String downloadSubscriptionOnce(String url, boolean insecure) throws Exception {
         HttpURLConnection connection = (HttpURLConnection) new URL(url).openConnection();
+        if (insecure && connection instanceof javax.net.ssl.HttpsURLConnection) {
+            javax.net.ssl.HttpsURLConnection https = (javax.net.ssl.HttpsURLConnection) connection;
+            javax.net.ssl.SSLContext context = javax.net.ssl.SSLContext.getInstance("TLS");
+            context.init(null, new javax.net.ssl.TrustManager[]{new javax.net.ssl.X509TrustManager() {
+                @Override public void checkClientTrusted(java.security.cert.X509Certificate[] chain, String authType) { }
+                @Override public void checkServerTrusted(java.security.cert.X509Certificate[] chain, String authType) { }
+                @Override public java.security.cert.X509Certificate[] getAcceptedIssuers() { return new java.security.cert.X509Certificate[0]; }
+            }}, new java.security.SecureRandom());
+            https.setSSLSocketFactory(context.getSocketFactory());
+            https.setHostnameVerifier((hostname, session) -> true);
+        }
         try {
             connection.setConnectTimeout(15000);
             connection.setReadTimeout(25000);
-            connection.setRequestProperty("User-Agent", "DaskGram/1.0");
+            connection.setInstanceFollowRedirects(true);
+            connection.setRequestProperty("User-Agent", "Happ/1.0");
             connection.setRequestProperty("Accept", "*/*");
+            // Defeat intermediate caches so a refresh always sees fresh servers.
+            connection.setRequestProperty("Cache-Control", "no-cache, no-store, max-age=0");
+            connection.setRequestProperty("Pragma", "no-cache");
+            connection.setUseCaches(false);
             StringBuilder body = new StringBuilder();
             long deadline = android.os.SystemClock.elapsedRealtime() + 45000L;
             try (InputStreamReader reader = new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8)) {
@@ -286,24 +400,34 @@ public final class VpnController {
     /** Core/store phase; parsing failure never clears previously saved servers. */
     public static int importSubscription(String url, String body) {
         lastError = null;
+        if (!isCoreAvailable()) {
+            lastError = "VPN-ядро недоступно на этом устройстве";
+            return -1;
+        }
         try {
             String decoded = decodeSubscriptionBody(body);
             Log.i(TAG, "subscription body " + body.length() + " -> " + decoded.length() + " chars");
-            int added = 0;
-            for (String raw : decoded.split("\n")) {
+            java.util.List<VpnServer> fresh = new java.util.ArrayList<>();
+            java.util.Set<String> seen = new java.util.HashSet<>();
+            for (String raw : decoded.split("\\r?\\n")) {
                 String link = raw.trim();
                 if (!isSupportedLink(link)) continue;
+                String id = stableId(link);
+                if (!seen.add(id)) continue;
                 String config = XrayCore.convertLink(link);
                 if (TextUtils.isEmpty(config)) continue;
-                VpnStore.upsert(new VpnServer(stableId(link), nameFromLink(link), link, config, url));
-                added++;
+                fresh.add(new VpnServer(id, nameFromLink(link), link, config, url));
             }
-            if (added == 0) {
+            if (fresh.isEmpty()) {
                 lastError = "в подписке не нашлось рабочих ссылок";
                 return -1;
             }
-            VpnStore.removeStale(url, decoded);
-            return added;
+            // Replace the whole subscription set atomically: upsert-then-prune
+            // left stale servers behind when the provider rotated links, because
+            // the active server was always kept and ordering drifted. Rebuild
+            // instead, preserving only the currently connected server.
+            VpnStore.replaceSubscription(url, fresh);
+            return fresh.size();
         } catch (Exception e) {
             Log.e(TAG, "subscription import failed", e);
             lastError = e.getMessage() == null ? "не удалось разобрать подписку" : e.getMessage();
@@ -369,6 +493,9 @@ public final class VpnController {
         link = link == null ? "" : link.trim();
         if (!isSupportedLink(link)) {
             return "это не похоже на ссылку vless://, vmess://, trojan:// или ss://";
+        }
+        if (!isCoreAvailable()) {
+            return "VPN-ядро недоступно на этом устройстве";
         }
         String config = XrayCore.convertLink(link);
         if (TextUtils.isEmpty(config)) {

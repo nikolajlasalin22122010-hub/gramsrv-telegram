@@ -42,7 +42,43 @@ public class VpnServer {
         String security = query("security", configSecurity());
         if (TextUtils.isEmpty(network)) network = protocol;
         if (TextUtils.isEmpty(security)) security = "TLS";
-        return protocol + " / " + capitalize(network) + " / " + capitalize(security);
+        String label = protocol + " / " + capitalize(network) + " / " + capitalize(security);
+        if (isJsonConfig()) label += " / JSON";
+        return label;
+    }
+
+    /** Small-caps rendering: capitals stay full size, lowercase letters shrink. */
+    public android.text.SpannableString detailsSpannable(float sizeSp) {
+        String label = detailsLabel().toUpperCase(Locale.US);
+        android.text.SpannableString span = new android.text.SpannableString(label);
+        String original = detailsLabel();
+        for (int i = 0; i < label.length() && i < original.length(); i++) {
+            if (Character.isLowerCase(original.charAt(i))) {
+                span.setSpan(new android.text.style.RelativeSizeSpan(0.72f), i, i + 1,
+                        android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            }
+        }
+        return span;
+    }
+
+    /** True when the stored config is a full Xray JSON (not a plain share link). */
+    public boolean isJsonConfig() {
+        if (link != null && link.trim().startsWith("{")) return true;
+        try {
+            JSONObject json = new JSONObject(config);
+            return json.has("outbounds") || json.has("inbounds");
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+    /** Pretty-printed JSON config for the viewer / share-as-json action. */
+    public String prettyJson() {
+        try {
+            return new JSONObject(config).toString(2);
+        } catch (Exception ignored) {
+            return config == null ? "" : config;
+        }
     }
 
     /** Regional-indicator flag when the provider included it in the name. */

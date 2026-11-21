@@ -293,6 +293,22 @@ public class ApplicationLoader extends Application {
         // AndroidUtilities must be initialized before FileLog
         final String helloWorld = AndroidUtilities.getHelloWorld();
 
+        // Always capture uncaught crashes to a file so a VPN/native failure can be
+        // diagnosed on release builds too, not only when debug logging is enabled.
+        try {
+            final Thread.UncaughtExceptionHandler previous = Thread.getDefaultUncaughtExceptionHandler();
+            Thread.setDefaultUncaughtExceptionHandler((thread, throwable) -> {
+                try {
+                    FileLog.fatal(throwable, false);
+                } catch (Throwable ignore) {
+                }
+                if (previous != null) {
+                    previous.uncaughtException(thread, throwable);
+                }
+            });
+        } catch (Throwable ignore) {
+        }
+
         if (BuildVars.LOGS_ENABLED) {
             FileLog.d(helloWorld);
             FileLog.d("app start time = " + (startTime = SystemClock.elapsedRealtime()));
@@ -354,6 +370,14 @@ public class ApplicationLoader extends Application {
 
         LauncherIconController.tryFixLauncherIconIfNeeded();
         ProxyRotationController.init();
+        // Connect the VPN tunnel as soon as the client starts, not only when the
+        // VPN page is opened — the same behaviour as an auto-applied MTProto proxy.
+        AndroidUtilities.runOnUIThread(() -> {
+            try {
+                org.telegram.vpn.VpnController.autoConnectOnLaunch();
+            } catch (Throwable ignore) {
+            }
+        }, 1500);
 
         //if (BuildConfig.DEBUG_PRIVATE_VERSION) {
         //    Choreographer60FpsContent.getInstance().addFrameCallback(debugEverySecondChecks, 1);

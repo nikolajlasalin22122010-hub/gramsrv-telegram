@@ -37,8 +37,18 @@ public class VpnIcon extends View {
     public static final String PUBLIC = "\ue80b";
     public static final String DATA_USAGE = "\ue1af";
     public static final String SCHEDULE = "\ue192";
+    public static final String SHARE = "\ue80d";
+    public static final String LINK = "\ue157";
+    public static final String CODE = "\ue86f";
+    public static final String QR_CODE = "\uef6b";
+    public static final String QR_CODE_SCANNER = "\uf206";
+    public static final String AUTO_FIX = "\ue663";
+    public static final String IMAGE = "\ue3f4";
+    public static final String EDIT = "\ue3c9";
+    public static final String VISIBILITY = "\ue8f4";
 
     private static Typeface typeface;
+    private static boolean fontOk;
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private String glyph;
     private int color = Color.WHITE;
@@ -75,11 +85,50 @@ public class VpnIcon extends View {
         if (typeface == null) {
             try {
                 typeface = Typeface.createFromAsset(context.getAssets(), "fonts/material_symbols_rounded.ttf");
-            } catch (Exception ignored) {
+                fontOk = typeface != null && typeface != Typeface.DEFAULT;
+            } catch (Throwable ignored) {
                 typeface = Typeface.DEFAULT;
+                fontOk = false;
             }
         }
         return typeface;
+    }
+
+    /** True when the Material Symbols font loaded; otherwise glyphs need a fallback. */
+    public static boolean isFontReady(Context context) {
+        typefaceFor(context);
+        return fontOk;
+    }
+
+    /** Readable stand-in when the icon font is unavailable on this device. */
+    public static String fallbackFor(String glyph) {
+        if (glyph == null) return "?";
+        if (SETTINGS.equals(glyph)) return "⚙";
+        if (ADD.equals(glyph)) return "+";
+        if (DELETE.equals(glyph) || DELETE_SWEEP.equals(glyph)) return "✕";
+        if (MORE.equals(glyph)) return "⋮";
+        if (CHEVRON_RIGHT.equals(glyph)) return "›";
+        if (ARROW_DROP_DOWN.equals(glyph) || EXPAND_MORE.equals(glyph)) return "▾";
+        if (EXPAND_LESS.equals(glyph)) return "▴";
+        if (ARROW_BACK.equals(glyph)) return "‹";
+        if (SYNC.equals(glyph) || REFRESH.equals(glyph)) return "↻";
+        if (SPEED.equals(glyph)) return "⚡";
+        if (AUTO_FIX.equals(glyph)) return "✦";
+        if (SHARE.equals(glyph)) return "↗";
+        if (LINK.equals(glyph)) return "⎘";
+        if (CODE.equals(glyph)) return "{}";
+        if (QR_CODE.equals(glyph) || QR_CODE_SCANNER.equals(glyph)) return "▦";
+        if (CHECK_BOX.equals(glyph)) return "☑";
+        if (CHECK_BOX_OUTLINE.equals(glyph)) return "☐";
+        if (CHECK.equals(glyph)) return "✓";
+        if (CLOSE.equals(glyph)) return "✕";
+        if (CONTENT_PASTE.equals(glyph)) return "⎘";
+        if (SELECT_ALL.equals(glyph)) return "☑";
+        if (SORT.equals(glyph)) return "⇅";
+        if (SHUFFLE.equals(glyph)) return "⇄";
+        if (TUNE.equals(glyph)) return "≡";
+        if (POWER.equals(glyph)) return "⏻";
+        return "•";
     }
 
     public void setText(String value) {
@@ -100,8 +149,9 @@ public class VpnIcon extends View {
     protected void onDraw(Canvas canvas) {
         float density = getResources().getDisplayMetrics().density;
         paint.setTextSize(textSizeDp * density);
+        String draw = fontOk ? glyph : fallbackFor(glyph);
         Paint.FontMetrics fm = paint.getFontMetrics();
         float baseline = getHeight() / 2f - (fm.ascent + fm.descent) / 2f;
-        canvas.drawText(glyph, getWidth() / 2f, baseline, paint);
+        canvas.drawText(draw, getWidth() / 2f, baseline, paint);
     }
 }

@@ -21,11 +21,45 @@ public final class XrayCore {
     private static final int API_VERSION = 3;
 
     private static volatile boolean running;
+    private static volatile boolean unavailable;
+    private static volatile String unavailableReason;
 
     private XrayCore() {
     }
 
+    /**
+     * Loads the Go core exactly once. On a device where the native library cannot
+     * load (unsupported ABI, missing dependency) this returns false instead of
+     * letting an UnsatisfiedLinkError escape and kill the app. Every public entry
+     * checks it, so the VPN page degrades to "core unavailable" rather than crash.
+     */
+    private static synchronized boolean ensureLoaded() {
+        if (unavailable) return false;
+        try {
+            LibXray.touch();
+            return true;
+        } catch (Throwable t) {
+            unavailable = true;
+            unavailableReason = t.getClass().getSimpleName()
+                    + (t.getMessage() == null ? "" : ": " + t.getMessage());
+            Log.e(TAG, "libXray unavailable on this device", t);
+            return false;
+        }
+    }
+
+    public static boolean isAvailable() {
+        return ensureLoaded();
+    }
+
+    public static String unavailableReason() {
+        ensureLoaded();
+        return unavailableReason;
+    }
+
     private static JSONObject call(String method, JSONObject payload) {
+        if (!ensureLoaded()) {
+            return null;
+        }
         try {
             JSONObject request = new JSONObject();
             request.put("apiVersion", API_VERSION);
@@ -97,6 +131,10 @@ public final class XrayCore {
     }
 
     public static void stop() {
+        if (!ensureLoaded()) {
+            running = false;
+            return;
+        }
         call("stopXray", null);
         running = false;
     }

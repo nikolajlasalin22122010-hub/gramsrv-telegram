@@ -11,11 +11,13 @@ import android.graphics.drawable.Drawable;
 public class VpnIconDrawable extends Drawable {
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final String glyph;
+    private final boolean fontOk;
     private final int size;
 
     public VpnIconDrawable(Context context, String glyph, int color) {
         this.glyph = glyph;
         paint.setTypeface(VpnIcon.typefaceFor(context));
+        this.fontOk = VpnIcon.isFontReady(context);
         paint.setColor(color);
         paint.setTextAlign(Paint.Align.CENTER);
         size = Math.round(24 * context.getResources().getDisplayMetrics().density);
@@ -30,9 +32,10 @@ public class VpnIconDrawable extends Drawable {
     public void draw(Canvas canvas) {
         android.graphics.Rect bounds = getBounds();
         paint.setTextSize(size);
+        String draw = fontOk ? glyph : VpnIcon.fallbackFor(glyph);
         Paint.FontMetrics metrics = paint.getFontMetrics();
         float baseline = bounds.centerY() - (metrics.ascent + metrics.descent) / 2f;
-        canvas.drawText(glyph, bounds.centerX(), baseline, paint);
+        canvas.drawText(draw, bounds.centerX(), baseline, paint);
     }
 
     @Override

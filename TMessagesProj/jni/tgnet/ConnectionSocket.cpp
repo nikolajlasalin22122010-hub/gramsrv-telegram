@@ -177,9 +177,32 @@ void ConnectionSocket::openConnection(std::string address, uint16_t port, std::s
             socketAddress.sin_family = AF_INET;
             socketAddress.sin_port = htons(port);
             if (inet_pton(AF_INET, address.c_str(), &socketAddress.sin_addr.s_addr) != 1) {
-                if (LOGS_ENABLED) DEBUG_E("connection(%p) bad ipv4 %s", this, address.c_str());
-                closeSocket(1, -1);
+                // The datacenter address may be a domain name (e.g. daskgram.xyz)
+                // rather than a literal IP. Resolve it through the same delegate
+                // the proxy path uses, so re-pointing the domain's DNS to a new
+                // server IP migrates clients transparently without an app update.
+#ifdef USE_DELEGATE_HOST_RESOLVE
+                if (LOGS_ENABLED) DEBUG_D("connection(%p) resolving datacenter host %s", this, address.c_str());
+                waitingForHostResolve = address;
+                ConnectionsManager::getInstance(instanceNum).delegate->getHostByName(address, instanceNum, this);
                 return;
+#else
+                struct hostent *he;
+                if ((he = gethostbyname(address.c_str())) == nullptr) {
+                    if (LOGS_ENABLED) DEBUG_E("connection(%p) can't resolve host %s address", this, address.c_str());
+                    closeSocket(1, -1);
+                    return;
+                }
+                struct in_addr **addr_list = (struct in_addr **) he->h_addr_list;
+                if (addr_list[0] != nullptr) {
+                    socketAddress.sin_addr.s_addr = addr_list[0]->s_addr;
+                    if (LOGS_ENABLED) DEBUG_D("connection(%p) resolved host %s address %x", this, address.c_str(), addr_list[0]->s_addr);
+                } else {
+                    if (LOGS_ENABLED) DEBUG_E("connection(%p) can't resolve host %s address", this, address.c_str());
+                    closeSocket(1, -1);
+                    return;
+                }
+#endif
             }
         }
         uint32_t tempBuffLength;

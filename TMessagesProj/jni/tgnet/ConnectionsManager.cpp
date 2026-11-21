@@ -1827,7 +1827,10 @@ void ConnectionsManager::initDatacenters() {
     }
 
     std::vector<TcpAddress> localAddresses;
-    localAddresses.push_back(TcpAddress("201.58.183.150", 2398, TcpAddressFlagStatic, ""));
+    // Use the domain, not a literal IP: the socket layer resolves it via DNS, so
+    // re-pointing daskgram.xyz to a new server IP migrates clients transparently
+    // (same port/RSA key/cert) without requiring an app update.
+    localAddresses.push_back(TcpAddress("daskgram.xyz", 2398, TcpAddressFlagStatic, ""));
     datacenter->replaceAddresses(localAddresses, 0);
 }
 

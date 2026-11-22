@@ -1,0 +1,32 @@
+// Resolve plugin artefacts from Maven Central first. The Gradle Plugin Portal
+// serves several of them as redirects to github.com/.../releases, which answers
+// 504 often enough to break CI. Maven Central is the canonical home for the
+// Kotlin plugin and its compiler jar anyway.
+pluginManagement {
+    repositories {
+        maven { url 'https://maven-central.storage-download.googleapis.com/maven2' }
+        mavenCentral()
+        google()
+        gradlePluginPortal()
+    }
+}
+
+include ':TMessagesProj'
+include ':TMessagesProj_App'
+include ':TMessagesProj_AppHuawei'
+include ':TMessagesProj_AppHockeyApp'
+include ':TMessagesProj_AppStandalone'
+include ':TMessagesProj_AppTests'
+include ':jlatexmath'
+project(':jlatexmath').projectDir = file('TMessagesProj/lib/jlatexmath/jlatexmath')
+
+dependencyResolutionManagement {
+    repositories {
+        maven { url 'https://maven-central.storage-download.googleapis.com/maven2' }
+        google()
+        mavenCentral()
+    }
+}
+
+gradle.ext.androidxMediaModulePrefix = 'TMessagesProj_Modules:media3:media-'
+apply from: file("TMessagesProj_Modules/media/core_settings.gradle")

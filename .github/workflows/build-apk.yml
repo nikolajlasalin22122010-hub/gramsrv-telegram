@@ -131,15 +131,13 @@ jobs:
           print("mirror ok")
           PY
 
+      # R8 full-mode peaks above the 7 GB runner RAM. Keep the heap modest and a
+      # single worker so peak stays low; the swap file absorbs spikes.
       - name: Build signed release APK
         run: |
           export ANDROID_SDK_ROOT=/usr/local/lib/android/sdk
           export ANDROID_HOME=$ANDROID_SDK_ROOT
-          gradle :TMessagesProj_App:assembleAfatRelease \
-            # R8 full-mode peaks above the 7 GB runner RAM. Keep the heap modest
-            # and a single worker so peak stays low; the swap file absorbs spikes.
-            --no-daemon --stacktrace --max-workers=1 \
-            -Dorg.gradle.jvmargs="-Xmx4g -XX:MaxMetaspaceSize=768m -XX:+UseSerialGC"
+          gradle :TMessagesProj_App:assembleAfatRelease --no-daemon --stacktrace --max-workers=1 -Dorg.gradle.jvmargs="-Xmx4g -XX:MaxMetaspaceSize=768m -XX:+UseSerialGC"
 
       - name: List APKs
         if: always()

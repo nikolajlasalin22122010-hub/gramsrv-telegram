@@ -823,7 +823,7 @@ public class MediaDataController extends BaseController {
     }
 
     public void preloadDefaultReactions() {
-        if (reactionsList == null || reactionsCacheGenerated || !LiteMode.isEnabled(LiteMode.FLAG_ANIMATED_EMOJI_REACTIONS)) {
+        if (reactionsList == null || reactionsCacheGenerated) {
             return;
         }
         if (currentAccount != UserConfig.selectedAccount) {
@@ -831,16 +831,15 @@ public class MediaDataController extends BaseController {
         }
         reactionsCacheGenerated = true;
         ArrayList<TLRPC.TL_availableReaction> arrayList = new ArrayList<>(reactionsList);
-        int N = Math.min(arrayList.size(), 10);
+        // Preload every reaction, not just the first ten. Lite mode only
+        // disables playback; it must not leave the icons blank while the
+        // animation is fetched -- the static glyph placeholder covers that.
+        int N = Math.min(arrayList.size(), 64);
         for (int i = 0; i < N; i++) {
             TLRPC.TL_availableReaction reaction = arrayList.get(i);
-            preloadImage(ImageLocation.getForDocument(reaction.activate_animation), FileLoader.PRIORITY_LOW);
-            preloadImage(ImageLocation.getForDocument(reaction.appear_animation), FileLoader.PRIORITY_LOW);
-        }
-
-        for (int i = 0; i < N; i++) {
-            TLRPC.TL_availableReaction reaction = arrayList.get(i);
-            preloadImage(ImageLocation.getForDocument(reaction.effect_animation), FileLoader.PRIORITY_LOW);
+            preloadImage(ImageLocation.getForDocument(reaction.activate_animation), FileLoader.PRIORITY_HIGH);
+            preloadImage(ImageLocation.getForDocument(reaction.appear_animation), FileLoader.PRIORITY_HIGH);
+            preloadImage(ImageLocation.getForDocument(reaction.effect_animation), FileLoader.PRIORITY_HIGH);
         }
     }
 
@@ -1497,6 +1496,19 @@ public class MediaDataController extends BaseController {
             groupStickerSets.put(set.set.id, set);
         }
         saveStickerSetIntoCache(set);
+        // A sticker is often the first thing opened in a chat. Warm its files
+        // in the background as soon as the pack is known so the first tap does
+        // not show an empty placeholder while the file is downloaded. Cap the
+        // number of documents per pack: an installed pack can hold hundreds.
+        if (currentAccount == UserConfig.selectedAccount && set.documents != null) {
+            int limit = Math.min(set.documents.size(), 24);
+            for (int i = 0; i < limit; i++) {
+                TLRPC.Document document = set.documents.get(i);
+                if (document != null) {
+                    preloadImage(ImageLocation.getForDocument(document), FileLoader.PRIORITY_HIGH);
+                }
+            }
+        }
         int type = TYPE_IMAGE;
         if (set.set.masks) {
             type = TYPE_MASK;

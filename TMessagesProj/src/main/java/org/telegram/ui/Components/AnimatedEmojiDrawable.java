@@ -656,8 +656,18 @@ public class AnimatedEmojiDrawable extends Drawable {
             mediaLocation = null;
             mediaFilter = filter;
         }
-        if (cacheType == CACHE_TYPE_STANDARD_EMOJI || cacheType == CACHE_TYPE_ALERT_STANDARD_EMOJI) {
-            Drawable emojiDrawable = Emoji.getEmojiDrawable(MessageObject.findAnimatedEmojiEmoticon(document, null));
+        // Animated emoji/reaction documents on a private server often arrive
+        // without a usable thumbnail. ImageReceiver then draws nothing while
+        // the .tgs is downloaded, which looks like an empty bubble until the
+        // file is cached -- and empty again after the cell is recycled. A
+        // bundled static glyph is always available, so use it as the thumb for
+        // every animated emoji cache type, not just STANDARD_EMOJI.
+        //
+        // The real animation still replaces it as soon as it is loaded; this
+        // only removes the blank gap while waiting for the network.
+        String emoticon = MessageObject.findAnimatedEmojiEmoticon(document, null);
+        if (emoticon != null) {
+            Drawable emojiDrawable = Emoji.getEmojiDrawable(emoticon);
             if (emojiDrawable != null) {
                 thumbDrawable = emojiDrawable;
             }

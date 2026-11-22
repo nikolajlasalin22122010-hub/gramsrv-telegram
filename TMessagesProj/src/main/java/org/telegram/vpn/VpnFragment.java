@@ -276,6 +276,12 @@ public class VpnFragment extends BaseFragment {
         emptyHint.addView(emptyLine, lin(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
         header.addView(emptyHint, lin(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
 
+        // A ListView only materialises its header views through an adapter.
+        // Without an adapter the header (power button, server cards and hints)
+        // is never requested, leaving just the backdrop visible. All UI lives
+        // in the header, so an empty adapter is enough.
+        list.setAdapter(new ArrayAdapter<String>(context, android.R.layout.simple_list_item_1, new String[0]));
+
         reload();
         return fragmentView;
     }

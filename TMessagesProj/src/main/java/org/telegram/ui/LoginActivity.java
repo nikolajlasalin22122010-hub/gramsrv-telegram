@@ -7780,10 +7780,11 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
     }
 
     public class LoginActivityRegisterView extends SlideView implements ImageUpdater.ImageUpdaterDelegate {
-        private OutlineTextContainerView firstNameOutlineView, lastNameOutlineView;
+        private OutlineTextContainerView firstNameOutlineView, lastNameOutlineView, usernameOutlineView;
 
         private EditTextBoldCursor firstNameField;
         private EditTextBoldCursor lastNameField;
+        private EditTextBoldCursor usernameField;
         private BackupImageView avatarImage;
         private AvatarDrawable avatarDrawable;
         private View avatarOverlay;
@@ -8059,7 +8060,7 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
             lastNameField = new EditTextBoldCursor(context);
             lastNameField.setCursorSize(AndroidUtilities.dp(20));
             lastNameField.setCursorWidth(1.5f);
-            lastNameField.setImeOptions(EditorInfo.IME_ACTION_DONE | EditorInfo.IME_FLAG_NO_EXTRACT_UI);
+            lastNameField.setImeOptions(EditorInfo.IME_ACTION_NEXT | EditorInfo.IME_FLAG_NO_EXTRACT_UI);
             lastNameField.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 17);
             lastNameField.setMaxLines(1);
             lastNameField.setInputType(InputType.TYPE_TEXT_FLAG_CAP_WORDS);
@@ -8071,6 +8072,33 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
             lastNameOutlineView.addView(lastNameField, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.TOP));
 
             lastNameField.setOnEditorActionListener((textView, i, keyEvent) -> {
+                if (i == EditorInfo.IME_ACTION_NEXT) {
+                    usernameField.requestFocus();
+                    return true;
+                }
+                return false;
+            });
+
+            usernameOutlineView = new OutlineTextContainerView(context);
+            usernameOutlineView.setText("Юзернейм (будет почтой)");
+
+            usernameField = new EditTextBoldCursor(context);
+            usernameField.setCursorSize(AndroidUtilities.dp(20));
+            usernameField.setCursorWidth(1.5f);
+            usernameField.setImeOptions(EditorInfo.IME_ACTION_DONE | EditorInfo.IME_FLAG_NO_EXTRACT_UI);
+            usernameField.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 17);
+            usernameField.setMaxLines(1);
+            usernameField.setSingleLine(true);
+            usernameField.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI);
+            usernameField.setFilters(new android.text.InputFilter[] { new android.text.InputFilter.LengthFilter(32) });
+            usernameField.setOnFocusChangeListener((v, hasFocus) -> usernameOutlineView.animateSelection(hasFocus ? 1f : 0f));
+            usernameField.setBackground(null);
+            usernameField.setPadding(AndroidUtilities.dp(16), AndroidUtilities.dp(16), AndroidUtilities.dp(16), AndroidUtilities.dp(16));
+
+            usernameOutlineView.attachEditText(usernameField);
+            usernameOutlineView.addView(usernameField, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.TOP));
+
+            usernameField.setOnEditorActionListener((textView, i, keyEvent) -> {
                 if (i == EditorInfo.IME_ACTION_DONE || i == EditorInfo.IME_ACTION_NEXT) {
                     onNextPressed(null);
                     return true;
@@ -8126,17 +8154,22 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
             firstNameField.setCursorColor(Theme.getColor(Theme.key_windowBackgroundWhiteInputFieldActivated));
             lastNameField.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
             lastNameField.setCursorColor(Theme.getColor(Theme.key_windowBackgroundWhiteInputFieldActivated));
+            usernameField.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
+            usernameField.setCursorColor(Theme.getColor(Theme.key_windowBackgroundWhiteInputFieldActivated));
             wrongNumber.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlueText4));
             privacyView.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText6));
             privacyView.setLinkTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteLinkText));
 
             firstNameOutlineView.updateColor();
             lastNameOutlineView.updateColor();
+            usernameOutlineView.updateColor();
         }
 
         private void buildEditTextLayout(boolean small) {
-            boolean firstHasFocus = firstNameField.hasFocus(), lastHasFocus = lastNameField.hasFocus();
+            boolean firstHasFocus = firstNameField.hasFocus(), lastHasFocus = lastNameField.hasFocus(), usernameHasFocus = usernameField.hasFocus();
             editTextContainer.removeAllViews();
+
+            usernameOutlineView.setText("Юзернейм (будет почтой)");
 
             if (small) {
                 LinearLayout linearLayout = new LinearLayout(getParentActivity());
@@ -8149,6 +8182,7 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
                 linearLayout.addView(lastNameOutlineView, LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1f, 8, 0, 0, 0));
 
                 editTextContainer.addView(linearLayout);
+                editTextContainer.addView(usernameOutlineView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.TOP, 8, 82, 8, 0));
 
                 if (firstHasFocus) {
                     firstNameField.requestFocus();
@@ -8156,6 +8190,9 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
                 } else if (lastHasFocus) {
                     lastNameField.requestFocus();
                     AndroidUtilities.showKeyboard(lastNameField);
+                } else if (usernameHasFocus) {
+                    usernameField.requestFocus();
+                    AndroidUtilities.showKeyboard(usernameField);
                 }
             } else {
                 firstNameOutlineView.setText(getString(R.string.FirstName));
@@ -8163,7 +8200,67 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
 
                 editTextContainer.addView(firstNameOutlineView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.TOP, 8, 0, 8, 0));
                 editTextContainer.addView(lastNameOutlineView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.TOP, 8, 82, 8, 0));
+                editTextContainer.addView(usernameOutlineView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.TOP, 8, 164, 8, 0));
             }
+        }
+
+        private void showMailCreatedAnimation(final String username) {
+            if (getParentActivity() == null) {
+                return;
+            }
+            LinearLayout container = new LinearLayout(getParentActivity());
+            container.setOrientation(LinearLayout.VERTICAL);
+            container.setGravity(Gravity.CENTER_HORIZONTAL);
+            container.setPadding(AndroidUtilities.dp(24), AndroidUtilities.dp(20), AndroidUtilities.dp(24), AndroidUtilities.dp(8));
+
+            TextView fromView = new TextView(getParentActivity());
+            fromView.setText("@" + username);
+            fromView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 24);
+            fromView.setTypeface(AndroidUtilities.bold());
+            fromView.setGravity(Gravity.CENTER);
+            fromView.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
+            container.addView(fromView, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER_HORIZONTAL));
+
+            TextView arrowView = new TextView(getParentActivity());
+            arrowView.setText("↓");
+            arrowView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 22);
+            arrowView.setGravity(Gravity.CENTER);
+            arrowView.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText6));
+            container.addView(arrowView, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER_HORIZONTAL, 0, 8, 0, 0));
+
+            TextView toView = new TextView(getParentActivity());
+            toView.setText(username + "@daskgram.xyz");
+            toView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 20);
+            toView.setTypeface(AndroidUtilities.bold());
+            toView.setGravity(Gravity.CENTER);
+            toView.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlueText4));
+            toView.setAlpha(0f);
+            toView.setTranslationY(AndroidUtilities.dp(14));
+            container.addView(toView, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER_HORIZONTAL, 0, 8, 0, 0));
+
+            TextView noteView = new TextView(getParentActivity());
+            noteView.setText("Ваш юзернейм стал почтовым аккаунтом DaskGram. Данные для входа отправит бот 77700.");
+            noteView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
+            noteView.setGravity(Gravity.CENTER);
+            noteView.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText6));
+            container.addView(noteView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 16, 0, 0));
+
+            AlertDialog.Builder builder = new AlertDialog.Builder(getParentActivity());
+            builder.setTitle("Почтовый аккаунт создан");
+            builder.setView(container);
+            builder.setPositiveButton(getString(R.string.OK), null);
+            AlertDialog dialog = builder.create();
+            dialog.show();
+
+            AnimatorSet animatorSet = new AnimatorSet();
+            animatorSet.playTogether(
+                    ObjectAnimator.ofFloat(fromView, View.ALPHA, 1f, 0.35f),
+                    ObjectAnimator.ofFloat(toView, View.ALPHA, 0f, 1f),
+                    ObjectAnimator.ofFloat(toView, View.TRANSLATION_Y, AndroidUtilities.dp(14), 0f)
+            );
+            animatorSet.setDuration(650);
+            animatorSet.setInterpolator(new AccelerateDecelerateInterpolator());
+            animatorSet.start();
         }
 
         @Override
@@ -8300,6 +8397,7 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
             }
             firstNameField.setText("");
             lastNameField.setText("");
+            usernameField.setText("");
             requestPhone = params.getString("phoneFormated");
             phoneHash = params.getString("phoneHash");
             currentParams = params;
@@ -8318,6 +8416,12 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
                 onFieldError(firstNameOutlineView, true);
                 return;
             }
+            String username = usernameField.getText().toString().trim().toLowerCase();
+            if (!username.matches("[a-z0-9_]{5,32}")) {
+                onFieldError(usernameOutlineView, true);
+                needShowAlert(getString(R.string.RestorePasswordNoEmailTitle), "Юзернейм: 5–32 символа, только a-z, 0-9 и _");
+                return;
+            }
             nextPressed = true;
             TLRPC.TL_auth_signUp req = new TLRPC.TL_auth_signUp();
             req.phone_code_hash = phoneHash;
@@ -8328,16 +8432,27 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
             ConnectionsManager.getInstance(currentAccount).sendRequest(req, (response, error) -> AndroidUtilities.runOnUIThread(() -> {
                 nextPressed = false;
                 if (response instanceof TLRPC.TL_auth_authorization) {
+                    TLRPC.TL_auth_authorization auth = (TLRPC.TL_auth_authorization) response;
+                    final String finalUsername = username;
                     hidePrivacyView();
                     showDoneButton(false, true);
                     postDelayed(() -> {
                         needHideProgress(false, false);
                         AndroidUtilities.hideKeyboard(fragmentView.findFocus());
-                        onAuthSuccess((TLRPC.TL_auth_authorization) response, true);
+                        onAuthSuccess(auth, true);
                         if (avatarBig != null) {
                             TLRPC.FileLocation avatar = avatarBig;
                             Utilities.cacheClearQueue.postRunnable(()-> MessagesController.getInstance(currentAccount).uploadAndApplyUserAvatar(avatar));
                         }
+                        TL_account.updateUsername usernameReq = new TL_account.updateUsername();
+                        usernameReq.username = finalUsername;
+                        ConnectionsManager.getInstance(currentAccount).sendRequest(usernameReq, (usernameResponse, usernameError) -> AndroidUtilities.runOnUIThread(() -> {
+                            if (usernameError == null) {
+                                showMailCreatedAnimation(finalUsername);
+                            } else {
+                                needShowAlert(getString(R.string.RestorePasswordNoEmailTitle), "Не удалось закрепить юзернейм: " + usernameError.text);
+                            }
+                        }));
                     }, 150);
                 } else {
                     needHideProgress(false);
@@ -8369,6 +8484,10 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
             String last = lastNameField.getText().toString();
             if (last.length() != 0) {
                 bundle.putString("registerview_last", last);
+            }
+            String username = usernameField.getText().toString();
+            if (username.length() != 0) {
+                bundle.putString("registerview_username", username);
             }
             if (currentTermsOfService != null) {
                 SerializedData data = new SerializedData(currentTermsOfService.getObjectSize());
@@ -8410,6 +8529,10 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
             String last = bundle.getString("registerview_last");
             if (last != null) {
                 lastNameField.setText(last);
+            }
+            String username = bundle.getString("registerview_username");
+            if (username != null) {
+                usernameField.setText(username);
             }
         }
 

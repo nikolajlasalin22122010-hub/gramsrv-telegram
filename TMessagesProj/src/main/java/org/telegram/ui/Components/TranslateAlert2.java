@@ -313,15 +313,30 @@ public class TranslateAlert2 extends BottomSheet implements NotificationCenter.N
             reqId = null;
         }
 
-        final String method = MessagesController.getInstance(currentAccount).translationsManualEnabled;
-        if ("alternative".equalsIgnoreCase(method)) {
-            translateAlt();
-            return;
-        }/* else if ("system".equalsIgnoreCase(method)) {
-            translateSystem();
-            return;
-        }*/
+        // DaskGram: manual translation runs on-device via Google ML Kit first.
+        // Rich messages and summaries need the server, plain text does not.
+        if (reqRichMessage == null && !reqSum) {
+            final String plainText = reqText == null ? "" : reqText.toString();
+            if (!TextUtils.isEmpty(plainText)) {
+                TranslateController.translateOffline(plainText, fromLanguage, toLanguage, (result, rateLimit) -> AndroidUtilities.runOnUIThread(() -> {
+                    if (result != null) {
+                        firstTranslation = false;
+                        textView.setText(preprocessText(result));
+                        adapter.updateMainView(textViewContainer);
+                    } else {
+                        translateOnline();
+                    }
+                }));
+                return;
+            }
+        }
+        translateOnline();
+    }
 
+    private void translateOnline() {
+        // DaskGram: online translation always goes through the server RPC,
+        // which routes to TokenWave hy3. The web-translate alternative remains
+        // only as an emergency fallback inside the RPC error handler.
         String lang = toLanguage;
         if (lang != null) {
             lang = lang.split("_")[0];

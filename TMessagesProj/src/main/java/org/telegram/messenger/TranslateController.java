@@ -17,11 +17,11 @@ import androidx.annotation.Nullable;
 //import com.google.mlkit.common.model.RemoteModelManager;
 //import com.google.mlkit.common.sdkinternal.MlKitContext;
 //import com.google.mlkit.common.sdkinternal.SharedPrefManager;
-//import com.google.mlkit.nl.translate.TranslateLanguage;
+import com.google.mlkit.nl.translate.TranslateLanguage;
 //import com.google.mlkit.nl.translate.TranslateRemoteModel;
-//import com.google.mlkit.nl.translate.Translation;
-//import com.google.mlkit.nl.translate.Translator;
-//import com.google.mlkit.nl.translate.TranslatorOptions;
+import com.google.mlkit.nl.translate.Translation;
+import com.google.mlkit.nl.translate.Translator;
+import com.google.mlkit.nl.translate.TranslatorOptions;
 
 import org.telegram.tgnet.ConnectionsManager;
 import org.telegram.tgnet.InputSerializedData;
@@ -1102,113 +1102,248 @@ public class TranslateController extends BaseController {
                     }
                 }
 
-                final String method = getMessagesController().translationsAutoEnabled;
-                if ("alternative".equals(method) || "system".equals(method)) {
-                    final String toLanguage = pendingTranslation1.language;
-                    for (int i = 0; i < pendingTranslation1.messageIds.size(); ++i) {
-                        final int id = pendingTranslation1.messageIds.get(i);
-                        final Utilities.Callback4<Boolean, Integer, TLRPC.TL_textWithEntities, String> _callback = pendingTranslation1.callbacks.get(i);
-                        final String _text = pendingTranslation1.messageTexts.get(i).text;
-                        TranslateAlert2.alternativeTranslate(_text, null, toLanguage, (result, rateLimit) -> {
-                            if (result != null) {
-                                final TLRPC.TL_textWithEntities resultWithEntities = new TLRPC.TL_textWithEntities();
-                                resultWithEntities.text = result;
-                                _callback.run(isTranscription, id, resultWithEntities, toLanguage);
-                            } else {
-                                toggleTranslatingDialog(dialogId, false);
-                                NotificationCenter.getGlobalInstance().postNotificationName(NotificationCenter.showBulletin, Bulletin.TYPE_ERROR, getString(rateLimit ? R.string.TranslationFailedAlert1 : R.string.TranslationFailedAlert2));
-                            }
-                        });
-                    }
-                    return;
-                }/* else if ("system".equals(method)) {
-                    final String toLanguage = pendingTranslation1.language;
-                    for (int i = 0; i < pendingTranslation1.messageIds.size(); ++i) {
-                        final int id = pendingTranslation1.messageIds.get(i);
-                        final Utilities.Callback3<Integer, TLRPC.TL_textWithEntities, String> _callback = pendingTranslation1.callbacks.get(i);
-                        final String _text = pendingTranslation1.messageTexts.get(i).text;
-                        systemTranslate(_text, null, toLanguage, result -> {
-                            if (result != null) {
-                                final TLRPC.TL_textWithEntities resultWithEntities = new TLRPC.TL_textWithEntities();
-                                resultWithEntities.text = result;
-                                _callback.run(id, resultWithEntities, toLanguage);
-                            } else {
-                                toggleTranslatingDialog(dialogId, false);
-                                NotificationCenter.getGlobalInstance().postNotificationName(NotificationCenter.showBulletin, Bulletin.TYPE_ERROR, LocaleController.getString(R.string.TranslationFailedAlert2));
-                            }
-                        });
-                    }
-                    return;
-                }*/
+                // DaskGram: always try on-device ML Kit first. Only messages that
+                // cannot be translated locally are sent to the server (hy3 online).
+                translateMessagesOffline(dialogId, isTranscription, pendingTranslation1, pendingTranslation1.messageIds, pendingTranslation1.messageTexts, pendingTranslation1.callbacks, pendingTranslation1.language);
 
-                final TLRPC.TL_messages_translateText req = new TLRPC.TL_messages_translateText();
-                if (isTranscription) {
-                    req.flags |= 2;
-                    req.text.addAll(pendingTranslation1.messageTexts);
-                } else {
-                    req.flags |= 1;
-                    req.peer = getMessagesController().getInputPeer(dialogId);
-                    req.id = pendingTranslation1.messageIds;
-                }
-                req.to_lang = normalizeLanguage(pendingTranslation1.language);
-
-                final int reqId = getConnectionsManager().sendRequest(req, (res, err) -> AndroidUtilities.runOnUIThread(() -> {
-                    final ArrayList<Integer> ids;
-                    final ArrayList<Utilities.Callback4<Boolean, Integer, TLRPC.TL_textWithEntities, String>> callbacks;
-                    final ArrayList<TLRPC.TL_textWithEntities> texts;
-                    final String toLanguage;
-                    synchronized (TranslateController.this) {
-                        ids = pendingTranslation1.messageIds;
-                        callbacks = pendingTranslation1.callbacks;
-                        texts = pendingTranslation1.messageTexts;
-                        toLanguage = pendingTranslation1.language;
-                    }
-                    if (res instanceof TLRPC.TL_messages_translateResult) {
-                        ArrayList<TLRPC.TL_textWithEntities> translated = ((TLRPC.TL_messages_translateResult) res).result;
-                        final int count = Math.min(callbacks.size(), translated.size());
-                        for (int i = 0; i < count; ++i) {
-                            callbacks.get(i).run(isTranscription, ids.get(i), TranslateAlert2.preprocess(texts.get(i), translated.get(i)), toLanguage);
-                        }
-                    } else if (err != null && "TRANSLATIONS_DISABLED_ALT".equalsIgnoreCase(err.text)) {
-                        for (int i = 0; i < ids.size(); ++i) {
-                            final int id = ids.get(i);
-                            final Utilities.Callback4<Boolean, Integer, TLRPC.TL_textWithEntities, String> _callback = callbacks.get(i);
-                            final String _text = texts.get(i).text;
-                            TranslateAlert2.alternativeTranslate(_text, null, toLanguage, (result, rateLimit) -> {
-                                if (result != null) {
-                                    final TLRPC.TL_textWithEntities resultWithEntities = new TLRPC.TL_textWithEntities();
-                                    resultWithEntities.text = result;
-                                    _callback.run(isTranscription, id, resultWithEntities, toLanguage);
-                                } else {
-                                    toggleTranslatingDialog(dialogId, false);
-                                    NotificationCenter.getGlobalInstance().postNotificationName(NotificationCenter.showBulletin, Bulletin.TYPE_ERROR, getString(rateLimit ? R.string.TranslationFailedAlert1 : R.string.TranslationFailedAlert2));
-                                }
-                            });
-                        }
-                    } else if (err != null && "TO_LANG_INVALID".equals(err.text)) {
-                        toggleTranslatingDialog(dialogId, false);
-                        NotificationCenter.getGlobalInstance().postNotificationName(NotificationCenter.showBulletin, Bulletin.TYPE_ERROR, getString(R.string.TranslationFailedAlert2));
-                    } else {
-                        if (err != null && "QUOTA_EXCEEDED".equals(err.text)) {
-                            NotificationCenter.getGlobalInstance().postNotificationName(NotificationCenter.showBulletin, Bulletin.TYPE_ERROR, getString(R.string.TranslationFailedAlert1));
-                        }
-                        for (int i = 0; i < callbacks.size(); ++i) {
-                            callbacks.get(i).run(isTranscription, ids.get(i), null, pendingTranslation1.language);
-                        }
-                    }
-                    synchronized (TranslateController.this) {
-                        for (int i = 0; i < ids.size(); ++i) {
-                            loadingTranslations.remove(ids.get(i));
-                        }
-                    }
-                }));
-                synchronized (TranslateController.this) {
-                    pendingTranslation1.reqId = reqId;
-                }
             };
             AndroidUtilities.runOnUIThread(pendingTranslation.runnable, pendingTranslation.delay);
             pendingTranslation.delay /= 2;
         }
+    }
+
+    /**
+     * DaskGram offline-first translation. Every message is first passed to
+     * Google ML Kit Translate on the device; only messages ML Kit cannot handle
+     * are sent to the server, where TELESRV_TRANSLATION_PROVIDERS routes online
+     * requests to TokenWave hy3.
+     */
+    private void translateMessagesOffline(
+        long dialogId,
+        boolean isTranscription,
+        PendingTranslation pending,
+        ArrayList<Integer> ids,
+        ArrayList<TLRPC.TL_textWithEntities> texts,
+        ArrayList<Utilities.Callback4<Boolean, Integer, TLRPC.TL_textWithEntities, String>> callbacks,
+        String toLanguage
+    ) {
+        final ArrayList<Integer> failedIds = new ArrayList<>();
+        final ArrayList<TLRPC.TL_textWithEntities> failedTexts = new ArrayList<>();
+        final ArrayList<Utilities.Callback4<Boolean, Integer, TLRPC.TL_textWithEntities, String>> failedCallbacks = new ArrayList<>();
+        final int[] remaining = new int[]{ids.size()};
+        final boolean[] fallbackScheduled = new boolean[1];
+
+        final Runnable finish = () -> {
+            synchronized (TranslateController.this) {
+                for (int i = 0; i < ids.size(); ++i) {
+                    loadingTranslations.remove(ids.get(i));
+                }
+            }
+            if (!failedIds.isEmpty()) {
+                sendServerTranslation(dialogId, isTranscription, pending, failedIds, failedTexts, failedCallbacks, toLanguage);
+            }
+        };
+
+        if (ids.isEmpty()) {
+            finish.run();
+            return;
+        }
+
+        for (int i = 0; i < ids.size(); ++i) {
+            final int index = i;
+            translateOffline(texts.get(i).text, null, toLanguage, (result, rateLimit) -> AndroidUtilities.runOnUIThread(() -> {
+                if (result != null) {
+                    final TLRPC.TL_textWithEntities translated = new TLRPC.TL_textWithEntities();
+                    translated.text = result;
+                    callbacks.get(index).run(isTranscription, ids.get(index), translated, toLanguage);
+                } else {
+                    failedIds.add(ids.get(index));
+                    failedTexts.add(texts.get(index));
+                    failedCallbacks.add(callbacks.get(index));
+                }
+                remaining[0]--;
+                if (remaining[0] == 0 && !fallbackScheduled[0]) {
+                    fallbackScheduled[0] = true;
+                    finish.run();
+                }
+            }));
+        }
+    }
+
+    private void sendServerTranslation(
+        long dialogId,
+        boolean isTranscription,
+        PendingTranslation pending,
+        ArrayList<Integer> ids,
+        ArrayList<TLRPC.TL_textWithEntities> texts,
+        ArrayList<Utilities.Callback4<Boolean, Integer, TLRPC.TL_textWithEntities, String>> callbacks,
+        String toLanguage
+    ) {
+        if (ids.isEmpty()) {
+            return;
+        }
+        final TLRPC.TL_messages_translateText req = new TLRPC.TL_messages_translateText();
+        if (isTranscription) {
+            req.flags |= 2;
+            req.text.addAll(texts);
+        } else {
+            req.flags |= 1;
+            req.peer = getMessagesController().getInputPeer(dialogId);
+            req.id = ids;
+        }
+        req.to_lang = normalizeLanguage(toLanguage);
+
+        final int reqId = getConnectionsManager().sendRequest(req, (res, err) -> AndroidUtilities.runOnUIThread(() -> {
+            if (res instanceof TLRPC.TL_messages_translateResult) {
+                ArrayList<TLRPC.TL_textWithEntities> translated = ((TLRPC.TL_messages_translateResult) res).result;
+                final int count = Math.min(callbacks.size(), translated.size());
+                for (int i = 0; i < count; ++i) {
+                    callbacks.get(i).run(isTranscription, ids.get(i), TranslateAlert2.preprocess(texts.get(i), translated.get(i)), toLanguage);
+                }
+            } else if (err != null && "TRANSLATIONS_DISABLED_ALT".equalsIgnoreCase(err.text)) {
+                // Emergency fallback only: server explicitly disabled its translators.
+                for (int i = 0; i < ids.size(); ++i) {
+                    final int id = ids.get(i);
+                    final Utilities.Callback4<Boolean, Integer, TLRPC.TL_textWithEntities, String> _callback = callbacks.get(i);
+                    final String _text = texts.get(i).text;
+                    TranslateAlert2.alternativeTranslate(_text, null, toLanguage, (result, rateLimit) -> {
+                        if (result != null) {
+                            final TLRPC.TL_textWithEntities resultWithEntities = new TLRPC.TL_textWithEntities();
+                            resultWithEntities.text = result;
+                            _callback.run(isTranscription, id, resultWithEntities, toLanguage);
+                        } else {
+                            toggleTranslatingDialog(dialogId, false);
+                            NotificationCenter.getGlobalInstance().postNotificationName(NotificationCenter.showBulletin, Bulletin.TYPE_ERROR, getString(rateLimit ? R.string.TranslationFailedAlert1 : R.string.TranslationFailedAlert2));
+                        }
+                    });
+                }
+            } else if (err != null && "TO_LANG_INVALID".equals(err.text)) {
+                toggleTranslatingDialog(dialogId, false);
+                NotificationCenter.getGlobalInstance().postNotificationName(NotificationCenter.showBulletin, Bulletin.TYPE_ERROR, getString(R.string.TranslationFailedAlert2));
+            } else {
+                if (err != null && "QUOTA_EXCEEDED".equals(err.text)) {
+                    NotificationCenter.getGlobalInstance().postNotificationName(NotificationCenter.showBulletin, Bulletin.TYPE_ERROR, getString(R.string.TranslationFailedAlert1));
+                }
+                for (int i = 0; i < callbacks.size(); ++i) {
+                    callbacks.get(i).run(isTranscription, ids.get(i), null, toLanguage);
+                }
+            }
+        }));
+        synchronized (TranslateController.this) {
+            pending.reqId = reqId;
+        }
+    }
+
+    public static void translateOffline(String text, String fromLanguage, String toLanguage, Utilities.Callback2<String, Boolean> done) {
+        if (done == null) {
+            return;
+        }
+        if (TextUtils.isEmpty(text)) {
+            done.run(text, false);
+            return;
+        }
+        final String to = mlKitLanguage(toLanguage);
+        if (to == null) {
+            FileLog.d("[mlkit] unsupported target language: " + toLanguage);
+            done.run(null, false);
+            return;
+        }
+
+        final Utilities.Callback<String> translateWithSource = detected -> {
+            final String from = mlKitLanguage(detected);
+            if (from == null || from.equals(to)) {
+                done.run(from == null ? null : text, false);
+                return;
+            }
+            final Translator translator;
+            try {
+                translator = Translation.getClient(new TranslatorOptions.Builder()
+                    .setSourceLanguage(from)
+                    .setTargetLanguage(to)
+                    .build());
+            } catch (Exception e) {
+                FileLog.e("[mlkit] failed to create translator", e);
+                done.run(null, false);
+                return;
+            }
+
+            translator.downloadModelIfNeeded()
+                .addOnSuccessListener(v -> {
+                    final String[] lines = text.split("\n", -1);
+                    final String[] result = new String[lines.length];
+                    final int[] pending = new int[]{lines.length};
+                    final boolean[] finished = new boolean[1];
+
+                    final Runnable complete = () -> {
+                        if (pending[0] == 0 && !finished[0]) {
+                            finished[0] = true;
+                            try {
+                                translator.close();
+                            } catch (Exception ignore) {
+                            }
+                            done.run(TextUtils.join("\n", result), false);
+                        }
+                    };
+
+                    for (int i = 0; i < lines.length; ++i) {
+                        final int index = i;
+                        final String line = lines[i];
+                        if (TextUtils.isEmpty(line) || line.replaceAll("[\\t\\n\\r]", "").isEmpty()) {
+                            result[index] = line;
+                            pending[0]--;
+                            complete.run();
+                        } else {
+                            translator.translate(line)
+                                .addOnSuccessListener(res -> {
+                                    result[index] = res == null ? "" : res;
+                                    pending[0]--;
+                                    complete.run();
+                                })
+                                .addOnFailureListener(err -> {
+                                    if (!finished[0]) {
+                                        finished[0] = true;
+                                        try {
+                                            translator.close();
+                                        } catch (Exception ignore) {
+                                        }
+                                        FileLog.e("[mlkit] translate failed", err);
+                                        done.run(null, false);
+                                    }
+                                });
+                        }
+                    }
+                })
+                .addOnFailureListener(err -> {
+                    try {
+                        translator.close();
+                    } catch (Exception ignore) {
+                    }
+                    FileLog.e("[mlkit] model download failed", err);
+                    done.run(null, false);
+                });
+        };
+
+        if (TextUtils.isEmpty(fromLanguage) || UNKNOWN_LANGUAGE.equals(fromLanguage) || "auto".equals(fromLanguage)) {
+            LanguageDetector.detectLanguage(text, translateWithSource, e -> translateWithSource.run("en"));
+        } else {
+            translateWithSource.run(fromLanguage);
+        }
+    }
+
+    private static String mlKitLanguage(String language) {
+        if (TextUtils.isEmpty(language)) {
+            return null;
+        }
+        final String tag = language.replace('_', '-');
+        final String mapped = TranslateLanguage.fromLanguageTag(tag);
+        if (mapped != null) {
+            return mapped;
+        }
+        final String base = tag.split("-")[0];
+        if (TranslateLanguage.getAllLanguages().contains(base)) {
+            return base;
+        }
+        return null;
     }
 
 //    private void systemTranslate(String text, String fromLanguage, String toLanguage, Utilities.Callback<String> done) {

@@ -1169,10 +1169,17 @@ public class ConnectionsManager extends BaseController {
             InputStream httpConnectionStream = null;
             boolean done = false;
             try {
-                URL downloadUrl = new URL("https://www.google.com/resolve?name=" + currentHostName + "&type=A");
+                // System resolver first: it works in RU where Google DoH is blocked.
+                try {
+                    InetAddress address = InetAddress.getByName(currentHostName);
+                    ArrayList<String> addresses = new ArrayList<>(1);
+                    addresses.add(address.getHostAddress());
+                    return new ResolvedDomain(addresses, SystemClock.elapsedRealtime());
+                } catch (Exception ignore) {
+                }
+                URL downloadUrl = new URL("https://daskgram.xyz/resolve?name=" + currentHostName + "&type=A");
                 URLConnection httpConnection = downloadUrl.openConnection();
                 httpConnection.addRequestProperty("User-Agent", "Mozilla/5.0 (iPhone; CPU iPhone OS 10_0 like Mac OS X) AppleWebKit/602.1.38 (KHTML, like Gecko) Version/10.0 Mobile/14A5297c Safari/602.1");
-                httpConnection.addRequestProperty("Host", "dns.google.com");
                 httpConnection.setConnectTimeout(1000);
                 httpConnection.setReadTimeout(2000);
                 httpConnection.connect();
@@ -1263,6 +1270,11 @@ public class ConnectionsManager extends BaseController {
         }
 
         protected NativeByteBuffer doInBackground(Void... voids) {
+            // In the standalone build this TXT record belongs to upstream Telegram
+            // and would make the client dial Telegram DCs instead of our server.
+            if (ApplicationLoader.isStandaloneBuild()) {
+                return null;
+            }
             ByteArrayOutputStream outbuf = null;
             InputStream httpConnectionStream = null;
             try {
@@ -1383,6 +1395,11 @@ public class ConnectionsManager extends BaseController {
         }
 
         protected NativeByteBuffer doInBackground(Void... voids) {
+            // In the standalone build this TXT record belongs to upstream Telegram
+            // and would make the client dial Telegram DCs instead of our server.
+            if (ApplicationLoader.isStandaloneBuild()) {
+                return null;
+            }
             ByteArrayOutputStream outbuf = null;
             InputStream httpConnectionStream = null;
             try {

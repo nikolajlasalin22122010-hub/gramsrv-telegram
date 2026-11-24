@@ -1827,11 +1827,14 @@ void ConnectionsManager::initDatacenters() {
     }
 
     std::vector<TcpAddress> localAddresses;
-    // Use the domain, not a literal IP: the socket layer resolves it via DNS, so
-    // re-pointing daskgram.xyz to a new server IP migrates clients transparently
-    // (same port/RSA key/cert) without requiring an app update.
+    // Keep the domain first so DNS re-pointing still works. The literal IP is a
+    // fallback for networks where the legacy DoH resolver cannot reach Google.
     localAddresses.push_back(TcpAddress("daskgram.xyz", 2398, TcpAddressFlagStatic, ""));
+    localAddresses.push_back(TcpAddress("31.77.222.90", 2398, TcpAddressFlagStatic, ""));
     datacenter->replaceAddresses(localAddresses, 0);
+    // A stale saved DC (for example an old Telegram DC id) must never make the
+    // standalone client dial someone else's servers.
+    currentDatacenterId = 2;
 }
 
 void ConnectionsManager::attachConnection(ConnectionSocket *connection) {

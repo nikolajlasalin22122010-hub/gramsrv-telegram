@@ -1249,7 +1249,7 @@ public class TranslateController extends BaseController {
             return;
         }
 
-        final Utilities.Callback<String> translateWithSource = detected -> {
+        final LanguageDetector.StringCallback translateWithSource = detected -> {
             final String from = mlKitLanguage(detected);
             if (from == null || from.equals(to)) {
                 done.run(from == null ? null : text, false);
